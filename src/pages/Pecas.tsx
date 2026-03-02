@@ -30,7 +30,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { usePecas, useSavePeca, useDeletePeca, generateWithGemini } from "@/hooks/usePecas";
+import { usePecas, useSavePeca, useDeletePeca, generateWithAI } from "@/hooks/usePecas";
+import { getStoredProvider, getStoredApiKey, getStoredModel } from "@/lib/aiProviders";
 import { useProcessos } from "@/hooks/useProcessos";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -57,15 +58,9 @@ const Pecas = () => {
     const [title, setTitle] = useState("");
     const [generatedText, setGeneratedText] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
-    const [apiKey, setApiKey] = useState(() => localStorage.getItem("gemini_api_key") || "");
     const [showSettings, setShowSettings] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-
-    const saveApiKey = (key: string) => {
-        setApiKey(key);
-        localStorage.setItem("gemini_api_key", key);
-    };
 
     const handleSelectTemplate = (template: PecaTemplate) => {
         setSelectedTemplate(template);
@@ -80,10 +75,14 @@ const Pecas = () => {
     const selectedProcess = processos?.find((p) => p.id === selectedProcessId);
 
     const handleGenerate = async () => {
+        const provider = getStoredProvider();
+        const apiKey = getStoredApiKey(provider);
+        const model = getStoredModel(provider);
+
         if (!apiKey) {
             toast({
                 title: "Chave de API necessária",
-                description: "Configure sua chave da API Gemini nas configurações.",
+                description: "Configure sua chave em Configurações → Inteligência Artificial.",
                 variant: "destructive",
             });
             setShowSettings(true);
@@ -100,10 +99,10 @@ const Pecas = () => {
 
         setIsGenerating(true);
         try {
+            // Monta o contexto enriquecido com dados do processo quando disponível
             let finalContext = context;
             if (selectedProcess) {
-                finalContext = `
-DADOS DO PROCESSO:
+                finalContext = `DADOS DO PROCESSO:
 Processo nº: ${selectedProcess.number}
 Cliente: ${selectedProcess.client}
 Tribunal: ${selectedProcess.court}
@@ -114,20 +113,7 @@ FATOS E CONTEXTO ADICIONAL:
 ${context}`;
             }
 
-            const prompt = `Você é um advogado brasileiro sênior especializado.
-${selectedTemplate ? selectedTemplate.promptBase : `Gere uma peça jurídica do tipo: "${tipo}".`}
-
-CONTEXTO DO CASO:
-${finalContext}
-
-INSTRUÇÕES:
-1. Gere a peça completa, pronta para uso, em formato profissional.
-2. Use a linguagem jurídica formal do direito brasileiro.
-3. Inclua todos os elementos obrigatórios deste tipo de peça (partes, fatos, fundamentos, pedidos etc).
-4. Use artigos de lei quando aplicável (CF, CPC, CC, CP, CLT etc).
-5. NÃO inclua instruções ou comentários — apenas o texto final da peça.`;
-
-            const result = await generateWithGemini(apiKey, prompt);
+            const result = await generateWithAI(provider, apiKey, model, tipo, finalContext);
             setGeneratedText(result);
             setTitle(`${tipo} — ${new Date().toLocaleDateString("pt-BR")}`);
             toast({ title: "Peça gerada com sucesso!" });

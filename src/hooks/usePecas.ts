@@ -68,31 +68,4 @@ export function useDeletePeca() {
     });
 }
 
-// --- Gemini API call ---
-export async function generateWithGemini(apiKey: string, prompt: string): Promise<string> {
-    const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey,
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 8192,
-                },
-            }),
-        }
-    );
-
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || 'Erro ao chamar a API Gemini');
-    }
-
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Sem resposta gerada.';
-}
+export { generateWithAI } from "@/lib/aiProviders";

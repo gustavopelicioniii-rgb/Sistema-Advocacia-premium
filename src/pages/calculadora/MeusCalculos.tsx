@@ -1,17 +1,30 @@
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Calculator, FileText } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Loader2, Calculator, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { CorrecaoValoresParametros } from "@/types/calculadora";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const formatCurrency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 const MeusCalculos = () => {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const [deleteId, setDeleteId] = React.useState<string | null>(null);
+
     const { data: calculos = [], isLoading } = useQuery({
         queryKey: ["calculos"],
         queryFn: async () => {
@@ -26,6 +39,17 @@ const MeusCalculos = () => {
             } catch {
                 return [];
             }
+        },
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await supabase.from("calculos").delete().eq("id", id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["calculos"] });
+            setDeleteId(null);
         },
     });
 
@@ -94,7 +118,7 @@ const MeusCalculos = () => {
                         return (
                             <Card
                                 key={c.id}
-                                className="cursor-pointer hover:border-primary/30 transition-colors"
+                                className="cursor-pointer hover:border-primary/30 transition-colors relative"
                                 onClick={() => {
                                     const parametros = parametrosFromCalculo(c);
                                     navigate("/calculadora/correcao", {
@@ -105,7 +129,7 @@ const MeusCalculos = () => {
                                 <CardContent className="p-4">
                                     <div className="flex items-start gap-2">
                                         <FileText className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
                                             <p className="font-medium truncate">{c.titulo || c.tipo_calculo}</p>
                                             <p className="text-xs text-muted-foreground mt-0.5">
                                                 {format(parseISO(c.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
@@ -121,6 +145,18 @@ const MeusCalculos = () => {
                                                 </p>
                                             )}
                                         </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 shrink-0"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setDeleteId(c.id);
+                                            }}
+                                            aria-label="Deletar cálculo"
+                                        >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -128,6 +164,31 @@ const MeusCalculos = () => {
                     })}
                 </div>
             )}
+
+            <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Deletar cálculo</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tem certeza que deseja deletar este cálculo? Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="flex justify-end gap-3">
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (deleteId) {
+                                    deleteMutation.mutate(deleteId);
+                                }
+                            }}
+                            disabled={deleteMutation.isPending}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {deleteMutation.isPending ? "Deletando..." : "Deletar"}
+                        </AlertDialogAction>
+                    </div>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };
