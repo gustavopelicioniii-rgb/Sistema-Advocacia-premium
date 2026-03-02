@@ -135,7 +135,14 @@ const CorrecaoValores = () => {
                         : "Resposta vazia ou inválida da calculadora.",
                 );
             }
-            setResultado(resultadoData as CorrecaoValoresResult);
+            const resultadoFinal = resultadoData as CorrecaoValoresResult;
+            setResultado(resultadoFinal);
+
+            if ((resultadoData as Record<string, unknown>).usandoFallback) {
+                toast.warning(
+                    "Cálculo realizado com taxas aproximadas (0,5% a.m. de correção). Para resultados precisos, popule a tabela de índices oficiais no Supabase.",
+                );
+            }
 
             const parametros = {
                 valorInicial: valor,
@@ -145,7 +152,7 @@ const CorrecaoValores = () => {
                 tipoJuros,
                 percentualMensal: percentualMensal || null,
             };
-            const resultadoJson = resultadoData as Record<string, unknown>;
+            const resultadoJson = resultadoFinal as unknown as Record<string, unknown>;
             const payloadIntegridade = JSON.stringify({ parametros, resultado: resultadoJson });
             const hashIntegridade = await sha256Hex(payloadIntegridade);
             const { data: inserted, error: insertErr } = await supabase
