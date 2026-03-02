@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCreateFee, useUpdateFee, type Fee, type FeeInsert, type PaymentMethod } from "@/hooks/useFees";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface FeeModalProps {
     open: boolean;
@@ -15,6 +16,7 @@ interface FeeModalProps {
 
 export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
     const { user } = useAuth();
+    const { toast } = useToast();
     const createMutation = useCreateFee();
     const updateMutation = useUpdateFee();
     const isEditing = !!fee;
@@ -54,6 +56,30 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.client) return;
+
+        // Validação: entrada não pode exceder o valor total do honorário
+        if (
+            form.payment_method === "entrada_parcelas" &&
+            form.entrada_value != null &&
+            form.entrada_value > form.value
+        ) {
+            toast({
+                title: "Valor de entrada inválido",
+                description: "A entrada não pode ser maior que o valor total do honorário.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Validação: número de parcelas deve ser positivo quando informado
+        if (form.installments != null && form.installments < 1) {
+            toast({
+                title: "Número de parcelas inválido",
+                description: "O número de parcelas deve ser maior que zero.",
+                variant: "destructive",
+            });
+            return;
+        }
 
         const payload = {
             ...form,

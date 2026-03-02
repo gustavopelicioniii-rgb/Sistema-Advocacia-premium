@@ -141,8 +141,10 @@ Deno.serve(async (req) => {
             let juros: number;
             let valorFinal: number;
             if (tipoJuros === "simples") {
-                // Juros simples: taxa aplicada apenas sobre o valor do mês (pós-correção)
-                juros = valorAposCorrecao * taxaFixaMensal;
+                // Juros simples: taxa aplicada sempre sobre o capital inicial (valorInicial),
+                // não sobre o saldo acumulado. Cada mês acrescenta a mesma parcela de juros.
+                // Fórmula: J = C * i (onde C = valorInicial, i = taxa mensal)
+                juros = valorInicial * taxaFixaMensal;
                 valorFinal = valorAposCorrecao + juros;
             } else {
                 // Juros compostos: valor final = valorAposCorrecao * (1 + taxa); juros acumulam mês a mês

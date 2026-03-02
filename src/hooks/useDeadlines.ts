@@ -77,12 +77,18 @@ export function calculateDeadline(startDate: Date, businessDays: number, holiday
     return currentDate;
 }
 
-/** Dias úteis entre duas datas (exclui sáb/dom; opcionalmente feriados). */
+/**
+ * Dias úteis restantes entre duas datas (exclui sáb/dom e feriados).
+ * Exclusivo da data de início (não conta hoje), inclusivo da data final.
+ * Exemplo: de segunda a quarta = 2 dias úteis restantes (terça + quarta).
+ */
 export function businessDaysBetween(start: Date, end: Date, holidayDates: string[] = []): number {
     if (isBefore(end, start)) return 0;
     const holidaySet = new Set(holidayDates);
     let count = 0;
+    // Começa no dia SEGUINTE ao start (não conta o dia atual no total de dias restantes)
     const d = new Date(start);
+    d.setDate(d.getDate() + 1);
     while (d <= end) {
         const day = d.getDay();
         const yyyy = d.getFullYear();
