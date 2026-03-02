@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Scale, Eye, EyeOff, Lock } from "lucide-react";
+import { Scale, Eye, EyeOff, Lock, AlertTriangle } from "lucide-react";
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState("");
@@ -63,11 +63,20 @@ const Login: React.FC = () => {
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : "";
-            if (msg.includes("Failed to fetch") || msg.includes("fetch")) {
+            if (!isSupabaseConfigured) {
                 toast.error(
-                    'Não foi possível conectar ao servidor. Confira no Supabase: Authentication → URL Configuration → adicione a URL deste site em "Site URL" e "Redirect URLs".',
-                    { duration: 8000 },
+                    "Supabase não configurado. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nas variáveis de ambiente (Vercel → Settings → Environment Variables).",
+                    { duration: 10000 },
                 );
+            } else if (msg.includes("Failed to fetch") || msg.includes("fetch")) {
+                toast.error(
+                    'Não foi possível conectar ao servidor. No Supabase Dashboard: Authentication → URL Configuration → adicione a URL deste site em "Site URL" e "Redirect URLs".',
+                    { duration: 10000 },
+                );
+            } else if (msg.includes("Invalid login credentials")) {
+                toast.error("Email ou senha incorretos. Verifique suas credenciais.");
+            } else if (msg.includes("Email not confirmed")) {
+                toast.error("E-mail não confirmado. Verifique sua caixa de entrada e clique no link de confirmação.");
             } else {
                 toast.error(msg || "Erro durante a autenticação");
             }
@@ -182,6 +191,16 @@ const Login: React.FC = () => {
     return (
         <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
             <Card className="w-full max-w-md shadow-lg border-slate-200">
+                {!isSupabaseConfigured && (
+                    <div className="flex items-start gap-2 rounded-t-lg border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>
+                            Supabase não configurado. Adicione{" "}
+                            <code className="font-mono text-xs">VITE_SUPABASE_URL</code> e{" "}
+                            <code className="font-mono text-xs">VITE_SUPABASE_ANON_KEY</code> nas variáveis de ambiente.
+                        </span>
+                    </div>
+                )}
                 <CardHeader className="space-y-1 text-center">
                     <div className="flex justify-center mb-4">
                         <div className="bg-primary/10 p-3 rounded-full">
