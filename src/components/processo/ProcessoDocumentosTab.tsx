@@ -75,6 +75,7 @@ export function ProcessoDocumentosTab({ documents, onAddDoc, deleteDoc }: Props)
                                     className="shrink-0 text-muted-foreground hover:text-destructive"
                                     onClick={() => deleteDoc.mutate({ docId: doc.id, filePath: doc.file_path })}
                                     disabled={deleteDoc.isPending}
+                                    aria-label={`Excluir documento ${doc.title}`}
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>

@@ -28,7 +28,13 @@ export function ProcessoHeader({ processo, onNewAndamento, onOpenStatus }: Props
     return (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-                <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/processos")}>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => navigate("/processos")}
+                    aria-label="Voltar para processos"
+                >
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div className="min-w-0 flex-1">

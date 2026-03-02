@@ -121,13 +121,18 @@ export const ExpensesTable = ({ onEdit, onDelete }: ExpensesTableProps) => {
                                                     size="icon"
                                                     className="h-8 w-8"
                                                     onClick={() => onEdit(e)}
-                                                    title="Editar despesa"
+                                                    aria-label="Editar despesa"
                                                 >
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            aria-label="Mais opções da despesa"
+                                                        >
                                                             <MoreHorizontal className="h-4 w-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import CalculatorLayout from "@/components/calculadora/CalculatorLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { calcularCorrecaoValores } from "@/lib/calcularCorrecao";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CorrecaoValoresResult, CorrecaoValoresParametros } from "@/types/calculadora";
@@ -98,95 +99,14 @@ const CorrecaoValores = () => {
             dataInicial: dIni,
             dataFinal: dFim,
             indice,
-            tipoJuros,
+            tipoJuros: tipoJuros as Parameters<typeof calcularCorrecaoValores>[0]["tipoJuros"],
             percentualMensal: percentualMensal ? parseFloat(percentualMensal.replace(",", ".")) : undefined,
         };
-        const invokeCalc = async (): Promise<unknown> => {
-            const { data, error: fnError } = await supabase.functions.invoke("calculadora-correcao", { body });
-            if (fnError) {
-                // FALLBACK: Se o JWT do usuário for rejeitado (401), tentamos usar a service role key embutida no ANON_KEY
-                if (fnError.message?.includes("401") || fnError.message?.toLowerCase().includes("invalid jwt")) {
-                    console.warn("JWT do usuário rejeitado. Tentando fallback com Service Role...");
-                    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculadora-correcao`;
-                    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-                    const response = await fetch(url, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${key}`,
-                            apikey: key,
-                        },
-                        body: JSON.stringify(body),
-                    });
-
-                    if (response.ok) {
-                        return await response.json();
-                    }
-
-                    const errorText = await response.text();
-                    throw new Error(`Erro na calculadora (401 Fallback): ${errorText || response.statusText}`);
-                }
-                throw new Error(fnError.message ?? "Erro ao chamar a calculadora.");
-            }
-            return data;
-        };
         try {
-            await supabase.auth.refreshSession();
-            const {
-                data: { session },
-            } = await supabase.auth.getSession();
-
-            if (!session?.access_token) {
-                toast.error("Sua sessão expirou. Por favor, faça login novamente.");
-                setLoading(false);
-                return;
-            }
-            let data: unknown;
-            try {
-                data = await invokeCalc();
-            } catch (firstErr: unknown) {
-                console.error("Erro detalhado na chamada da Edge Function:", firstErr);
-                const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
-
-                // Tentar extrair o corpo do erro se for um erro de função do Supabase
-                const errWithContext = firstErr as { context?: { body: unknown; json: () => Promise<unknown> } };
-                if (errWithContext.context?.body) {
-                    try {
-                        const errorBody = (await errWithContext.context.json()) as Record<string, unknown>;
-                        if (
-                            errorBody &&
-                            typeof errorBody === "object" &&
-                            "error" in errorBody &&
-                            typeof errorBody.error === "string"
-                        ) {
-                            throw new Error(errorBody.error);
-                        }
-                    } catch (e) {
-                        console.error("Não foi possível parsear o corpo do erro:", e);
-                    }
-                }
-
-                const isAuthOrNetwork = /401|unauthorized|JWT|failed to fetch|network|CORS/i.test(firstMsg);
-                if (isAuthOrNetwork) {
-                    await supabase.auth.refreshSession();
-                    data = await invokeCalc();
-                } else {
-                    throw firstErr;
-                }
-            }
-            const resultadoData = (data ?? null) as CorrecaoValoresResult | { error?: string } | null;
-            if (!resultadoData || "error" in resultadoData) {
-                throw new Error(
-                    typeof (resultadoData as { error?: string })?.error === "string"
-                        ? (resultadoData as { error: string }).error
-                        : "Resposta vazia ou inválida da calculadora.",
-                );
-            }
-            const resultadoFinal = resultadoData as CorrecaoValoresResult;
+            const resultadoFinal = await calcularCorrecaoValores(body, supabase);
             setResultado(resultadoFinal);
 
-            if ((resultadoData as Record<string, unknown>).usandoFallback) {
+            if ((resultadoFinal as unknown as Record<string, unknown>).usandoFallback) {
                 toast.warning(
                     "Cálculo realizado com taxas aproximadas (0,5% a.m. de correção). Para resultados precisos, popule a tabela de índices oficiais no Supabase.",
                 );
@@ -208,7 +128,7 @@ const CorrecaoValores = () => {
                 .insert({
                     owner_id: user?.id ?? null,
                     tipo_calculo: "correcao_valores",
-                    versao_formula: (resultadoData as CorrecaoValoresResult).versao_formula ?? 1,
+                    versao_formula: resultadoFinal.versao_formula ?? 1,
                     parametros_json: parametros,
                     resultado_json: resultadoJson,
                     hash_integridade: hashIntegridade,
@@ -225,7 +145,7 @@ const CorrecaoValores = () => {
                         evento: "criacao",
                         detalhes: {
                             source: "correcao_valores",
-                            valorFinal: (resultadoData as { valorFinal?: number })?.valorFinal,
+                            valorFinal: resultadoFinal.valorFinal,
                         },
                     });
                 }
@@ -234,17 +154,7 @@ const CorrecaoValores = () => {
             queryClient.invalidateQueries({ queryKey: ["calculos"] });
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "Erro ao calcular.";
-            const lower = msg.toLowerCase();
-            if (/401|unauthorized|JWT/.test(lower)) {
-                toast.error("Sessão expirada ou não autorizada. Faça login novamente e tente o cálculo de novo.");
-            } else if (/failed to fetch|network|CORS|edge function|relay/i.test(lower)) {
-                toast.error(
-                    "Não foi possível chamar a calculadora. Confira: (1) está logado; (2) VITE_SUPABASE_URL é do mesmo projeto onde a Edge Function foi publicada; (3) no Supabase, Edge Functions → calculadora-correcao está publicada. Detalhe: " +
-                        (msg.slice(0, 80) || "erro de rede."),
-                );
-            } else {
-                toast.error(msg);
-            }
+            toast.error(msg);
         } finally {
             setLoading(false);
         }

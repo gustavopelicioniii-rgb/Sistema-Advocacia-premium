@@ -51,6 +51,7 @@ export function ProcessoNotasTab({ notes, onAddNote, onEditNote, deleteNote }: P
                                             size="icon"
                                             className="h-8 w-8 text-muted-foreground"
                                             onClick={() => onEditNote({ id: note.id, content: note.content })}
+                                            aria-label="Editar nota"
                                         >
                                             <Pencil className="h-4 w-4" />
                                         </Button>
@@ -60,6 +61,7 @@ export function ProcessoNotasTab({ notes, onAddNote, onEditNote, deleteNote }: P
                                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                             onClick={() => deleteNote.mutate(note.id)}
                                             disabled={deleteNote.isPending}
+                                            aria-label="Excluir nota"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>

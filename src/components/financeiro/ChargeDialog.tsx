@@ -174,6 +174,7 @@ export const ChargeDialog = ({ open, onOpenChange, method, onMethodChange }: Cha
                                     size="icon"
                                     className="h-8 w-8 shrink-0"
                                     onClick={handleCopyLink}
+                                    aria-label="Copiar link de pagamento"
                                 >
                                     <Copy className="h-4 w-4" />
                                 </Button>
