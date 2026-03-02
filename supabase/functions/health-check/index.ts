@@ -51,7 +51,9 @@ Deno.serve(async (req: Request) => {
 
     try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+        // Usa apenas SERVICE_ROLE_KEY para o health-check bypass RLS corretamente.
+        // Nunca fazer fallback para ANON_KEY: resultados inconsistentes por RLS.
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
         if (!supabaseUrl || !supabaseKey) {
             logStructured("error", "Missing Supabase env vars", { correlationId });

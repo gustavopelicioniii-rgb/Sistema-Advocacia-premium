@@ -33,6 +33,30 @@ function normalizeEventType(raw: string): string {
     return (raw ?? "unknown").toLowerCase().replace(/\s+/g, "_");
 }
 
+/** Verifica assinatura HMAC-SHA256 do Supabase Auth Webhook (x-supabase-signature). */
+async function verifyWebhookSignature(
+    rawBody: string,
+    signatureHeader: string | null,
+    secret: string,
+): Promise<boolean> {
+    if (!signatureHeader) return false;
+    // Formato: "v1,<hex-hmac-sha256>"
+    const parts = signatureHeader.split(",");
+    const hexSig = parts.length === 2 ? parts[1] : parts[0];
+    const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+    );
+    const sigBuffer = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+    const computed = Array.from(new Uint8Array(sigBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    return computed === hexSig;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response(null, { headers: CORS_HEADERS });
@@ -45,9 +69,26 @@ Deno.serve(async (req: Request) => {
         });
     }
 
+    // Lê body como texto para poder verificar assinatura
+    const rawBody = await req.text();
+
+    // Verificação de origem: valida HMAC-SHA256 se SUPABASE_WEBHOOK_SECRET estiver definido
+    const webhookSecret = Deno.env.get("SUPABASE_WEBHOOK_SECRET");
+    if (webhookSecret) {
+        const signatureHeader = req.headers.get("x-supabase-signature");
+        const isValid = await verifyWebhookSignature(rawBody, signatureHeader, webhookSecret);
+        if (!isValid) {
+            logStructured("warn", "Assinatura do webhook inválida — requisição rejeitada");
+            return new Response(JSON.stringify({ error: "Assinatura inválida" }), {
+                status: 401,
+                headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+            });
+        }
+    }
+
     let body: Record<string, unknown>;
     try {
-        body = await req.json();
+        body = JSON.parse(rawBody);
     } catch {
         return new Response(JSON.stringify({ error: "Invalid JSON" }), {
             status: 400,

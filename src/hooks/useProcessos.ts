@@ -79,13 +79,18 @@ export function useProcessoStats() {
 export function useCreateProcesso() {
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const { user } = useAuth();
 
     return useMutation({
         mutationFn: async (processo: ProcessoInsert) => {
             // O enforcement do limite de plano é feito server-side pelo trigger
             // `trg_check_process_plan_limit` (migration 20260301000000).
-            // O erro do trigger é capturado abaixo e exibido ao usuário.
-            const { data, error } = await supabase.from("processos").insert(processo).select().single();
+            // owner_id é sempre sobrescrito pelo usuário autenticado (segurança multi-tenant).
+            const { data, error } = await supabase
+                .from("processos")
+                .insert({ ...processo, owner_id: user?.id ?? null })
+                .select()
+                .single();
 
             if (error) throw error;
             return data;
