@@ -1,0 +1,6 @@
+dist
+node_modules
+.husky
+*.generated.*
+src/integrations/supabase/types.ts
+public

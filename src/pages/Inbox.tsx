@@ -1,8 +1,5 @@
 import { motion } from "framer-motion";
-import {
-    Bell, Newspaper, FileText, CheckCircle2,
-    Clock, MoreVertical, Check, Trash2, Filter
-} from "lucide-react";
+import { Bell, Newspaper, FileText, CheckCircle2, Clock, MoreVertical, Check, Trash2, Filter } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,29 +7,40 @@ import { useInbox, useMarkAsRead, useMarkAllAsRead } from "@/hooks/useInbox";
 import { format, parseISO, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePagination } from "@/hooks/usePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuTrigger
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 const getIcon = (tipo: string) => {
     switch (tipo) {
-        case 'Publicação': return <Newspaper className="h-4 w-4" />;
-        case 'Andamento': return <Clock className="h-4 w-4" />;
-        case 'Documento': return <FileText className="h-4 w-4" />;
-        case 'Tarefa': return <CheckCircle2 className="h-4 w-4" />;
-        default: return <Bell className="h-4 w-4" />;
+        case "Publicação":
+            return <Newspaper className="h-4 w-4" />;
+        case "Andamento":
+            return <Clock className="h-4 w-4" />;
+        case "Documento":
+            return <FileText className="h-4 w-4" />;
+        case "Tarefa":
+            return <CheckCircle2 className="h-4 w-4" />;
+        default:
+            return <Bell className="h-4 w-4" />;
     }
 };
 
 const getPriorityColor = (prioridade: string) => {
     switch (prioridade) {
-        case 'Urgente': return "destructive";
-        case 'Alta': return "secondary";
-        case 'Normal': return "secondary";
-        default: return "outline";
+        case "Urgente":
+            return "destructive";
+        case "Alta":
+            return "secondary";
+        case "Normal":
+            return "secondary";
+        default:
+            return "outline";
     }
 };
 
@@ -42,10 +50,13 @@ const Inbox = () => {
     const markAsRead = useMarkAsRead();
     const markAllAsRead = useMarkAllAsRead();
 
-    const unreadCount = items?.filter(i => !i.lido).length ?? 0;
-    const todayItems = items?.filter(i => isToday(parseISO(i.created_at))) ?? [];
-    const otherItems = items?.filter(i => !isToday(parseISO(i.created_at))) ?? [];
+    const unreadCount = items?.filter((i) => !i.lido).length ?? 0;
+    const todayItems = items?.filter((i) => isToday(parseISO(i.created_at))) ?? [];
+    const otherItems = items?.filter((i) => !isToday(parseISO(i.created_at))) ?? [];
     const hasToday = todayItems.length > 0;
+
+    const olderList = hasToday ? otherItems : (items ?? []);
+    const { page, pageCount, pageData: olderPage, totalItems: olderTotal, goTo } = usePagination(olderList, 20);
 
     return (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -84,26 +95,37 @@ const Inbox = () => {
                                 onClick={() => !item.lido && markAsRead.mutate(item.id)}
                                 role="button"
                                 tabIndex={0}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') !item.lido && markAsRead.mutate(item.id); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                        if (!item.lido) markAsRead.mutate(item.id);
+                                    }
+                                }}
                             >
-                                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${!item.lido ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                                <div
+                                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${!item.lido ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                                >
                                     {getIcon(item.tipo)}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <p className={`text-sm font-semibold truncate ${!item.lido ? "text-foreground" : "text-muted-foreground"}`}>
+                                        <p
+                                            className={`text-sm font-semibold truncate ${!item.lido ? "text-foreground" : "text-muted-foreground"}`}
+                                        >
                                             {item.titulo}
                                         </p>
-                                        <Badge variant={getPriorityColor(item.prioridade)} className="text-[10px] uppercase">
+                                        <Badge
+                                            variant={getPriorityColor(item.prioridade)}
+                                            className="text-[10px] uppercase"
+                                        >
                                             {item.prioridade}
                                         </Badge>
                                         {!item.lido && <div className="h-2 w-2 rounded-full bg-primary" />}
                                     </div>
-                                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                                        {item.descricao}
-                                    </p>
+                                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{item.descricao}</p>
                                     <div className="flex items-center gap-3">
-                                        <Badge variant="outline" className="text-[10px]">{item.tipo}</Badge>
+                                        <Badge variant="outline" className="text-[10px]">
+                                            {item.tipo}
+                                        </Badge>
                                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                                             <Clock className="h-3 w-3" />
                                             {format(parseISO(item.created_at), "HH:mm", { locale: ptBR })}
@@ -156,59 +178,83 @@ const Inbox = () => {
                             <p className="text-xs mt-1">Ótimo trabalho! Tudo sob controle.</p>
                         </div>
                     ) : (
-                        (hasToday ? otherItems : items).map((item) => (
-                            <div
-                                key={item.id}
-                                className={`flex items-start gap-4 rounded-lg border p-4 transition-all hover:bg-muted/50 group relative ${!item.lido ? "border-primary/30 bg-primary/[0.02]" : "border-border opacity-80"}`}
-                                onClick={() => !item.lido && markAsRead.mutate(item.id)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') !item.lido && markAsRead.mutate(item.id); }}
-                            >
-                                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${!item.lido ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                                    {getIcon(item.tipo)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <p className={`text-sm font-semibold truncate ${!item.lido ? "text-foreground" : "text-muted-foreground"}`}>
-                                            {item.titulo}
+                        <>
+                            {olderPage.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className={`flex items-start gap-4 rounded-lg border p-4 transition-all hover:bg-muted/50 group relative ${!item.lido ? "border-primary/30 bg-primary/[0.02]" : "border-border opacity-80"}`}
+                                    onClick={() => !item.lido && markAsRead.mutate(item.id)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            if (!item.lido) markAsRead.mutate(item.id);
+                                        }
+                                    }}
+                                >
+                                    <div
+                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${!item.lido ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                                    >
+                                        {getIcon(item.tipo)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <p
+                                                className={`text-sm font-semibold truncate ${!item.lido ? "text-foreground" : "text-muted-foreground"}`}
+                                            >
+                                                {item.titulo}
+                                            </p>
+                                            <Badge
+                                                variant={getPriorityColor(item.prioridade)}
+                                                className="text-[10px] uppercase"
+                                            >
+                                                {item.prioridade}
+                                            </Badge>
+                                            {!item.lido && <div className="h-2 w-2 rounded-full bg-primary" />}
+                                        </div>
+                                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                            {item.descricao}
                                         </p>
-                                        <Badge variant={getPriorityColor(item.prioridade)} className="text-[10px] uppercase">
-                                            {item.prioridade}
-                                        </Badge>
-                                        {!item.lido && <div className="h-2 w-2 rounded-full bg-primary" />}
+                                        <div className="flex items-center gap-3">
+                                            <Badge variant="outline" className="text-[10px]">
+                                                {item.tipo}
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <Clock className="h-3 w-3" />
+                                                {format(parseISO(item.created_at), "dd 'de' MMMM 'às' HH:mm", {
+                                                    locale: ptBR,
+                                                })}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                                        {item.descricao}
-                                    </p>
-                                    <div className="flex items-center gap-3">
-                                        <Badge variant="outline" className="text-[10px]">{item.tipo}</Badge>
-                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {format(parseISO(item.created_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
-                                        </span>
-                                    </div>
-                                </div>
 
-                                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => markAsRead.mutate(item.id)}>
-                                                <Check className="mr-2 h-4 w-4" /> Marcar como lido
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem className="text-destructive">
-                                                <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => markAsRead.mutate(item.id)}>
+                                                    <Check className="mr-2 h-4 w-4" /> Marcar como lido
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            ))}
+                            <TablePagination
+                                page={page}
+                                pageCount={pageCount}
+                                totalItems={olderTotal}
+                                pageSize={20}
+                                onPageChange={goTo}
+                            />
+                        </>
                     )}
                 </CardContent>
             </Card>

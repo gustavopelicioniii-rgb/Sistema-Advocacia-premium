@@ -1,6 +1,12 @@
 import {
-    FileText, Scale, ShieldAlert, Gavel,
-    Handshake, FileCheck, ClipboardList
+    FileText,
+    Scale,
+    ShieldAlert,
+    Gavel,
+    Handshake,
+    FileCheck,
+    ClipboardList,
+    type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -8,11 +14,12 @@ export interface PecaTemplate {
     id: string;
     titulo: string;
     descricao: string;
-    icon: any;
+    icon: LucideIcon;
     categoria: string;
     promptBase: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const pecaTemplates: PecaTemplate[] = [
     {
         id: "peticao-inicial",
@@ -20,7 +27,8 @@ export const pecaTemplates: PecaTemplate[] = [
         descricao: "Estrutura completa com fatos, fundamentos e pedidos.",
         icon: FileText,
         categoria: "Cível",
-        promptBase: "Gere uma petição inicial profissional para o seguinte caso jurídico. Inclua endereçamento, qualificação das partes, fatos, fundamentos jurídicos (doutrina e jurisprudência) e pedidos detalhados."
+        promptBase:
+            "Gere uma petição inicial profissional para o seguinte caso jurídico. Inclua endereçamento, qualificação das partes, fatos, fundamentos jurídicos (doutrina e jurisprudência) e pedidos detalhados.",
     },
     {
         id: "contestacao",
@@ -28,7 +36,8 @@ export const pecaTemplates: PecaTemplate[] = [
         descricao: "Defesa técnica com preliminares e mérito.",
         icon: ShieldAlert,
         categoria: "Cível",
-        promptBase: "Gere uma contestação jurídica refutando os termos da inicial. Foque em preliminares de mérito, prescrição, decadência e negação dos fatos alegados."
+        promptBase:
+            "Gere uma contestação jurídica refutando os termos da inicial. Foque em preliminares de mérito, prescrição, decadência e negação dos fatos alegados.",
     },
     {
         id: "recurso-apelacao",
@@ -36,7 +45,8 @@ export const pecaTemplates: PecaTemplate[] = [
         descricao: "Contestação de sentença de primeira instância.",
         icon: Gavel,
         categoria: "Cível",
-        promptBase: "Gere um recurso de apelação atacando os fundamentos da sentença recorrida. Destaque erros in procedendo e in iudicando."
+        promptBase:
+            "Gere um recurso de apelação atacando os fundamentos da sentença recorrida. Destaque erros in procedendo e in iudicando.",
     },
     {
         id: "contrato-honorarios",
@@ -44,7 +54,8 @@ export const pecaTemplates: PecaTemplate[] = [
         descricao: "Modelo padrão da OAB com cláusulas de êxito.",
         icon: Handshake,
         categoria: "Administrativo",
-        promptBase: "Gere um contrato de prestação de serviços advocatícios e honorários profissionais seguindo as normas da OAB. Inclua cláusulas de objeto, valor, parcelas e quota litis (êxito)."
+        promptBase:
+            "Gere um contrato de prestação de serviços advocatícios e honorários profissionais seguindo as normas da OAB. Inclua cláusulas de objeto, valor, parcelas e quota litis (êxito).",
     },
     {
         id: "procuracao",
@@ -52,7 +63,8 @@ export const pecaTemplates: PecaTemplate[] = [
         descricao: "Poderes gerais e específicos para o foro.",
         icon: FileCheck,
         categoria: "Administrativo",
-        promptBase: "Gere uma procuração ad judicia et extra. Inclua poderes gerais para o foro e poderes específicos como transigir, desistir e receber quitação."
+        promptBase:
+            "Gere uma procuração ad judicia et extra. Inclua poderes gerais para o foro e poderes específicos como transigir, desistir e receber quitação.",
     },
     {
         id: "parecer-juridico",
@@ -60,8 +72,9 @@ export const pecaTemplates: PecaTemplate[] = [
         descricao: "Análise técnica sobre consulta específica.",
         icon: ClipboardList,
         categoria: "Consultivo",
-        promptBase: "Gere um parecer jurídico técnico e fundamentado sobre a consulta apresentada. Estruture em: Ementa, Relatório, Fundamentação e Conclusão (Respostas aos quesitos)."
-    }
+        promptBase:
+            "Gere um parecer jurídico técnico e fundamentado sobre a consulta apresentada. Estruture em: Ementa, Relatório, Fundamentação e Conclusão (Respostas aos quesitos).",
+    },
 ];
 
 const PecaTemplates = ({ onSelect }: { onSelect: (template: PecaTemplate) => void }) => {

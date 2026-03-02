@@ -1,23 +1,17 @@
 import { useState } from "react";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateProcesso, useUpdateProcesso, useProcessPlanLimit, type Processo, type ProcessoInsert } from "@/hooks/useProcessos";
+import {
+    useCreateProcesso,
+    useUpdateProcesso,
+    useProcessPlanLimit,
+    type Processo,
+    type ProcessoInsert,
+} from "@/hooks/useProcessos";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTeamMembers } from "@/hooks/useTeam";
 
@@ -56,26 +50,26 @@ export default function ProcessoModal({ open, onOpenChange, processo }: Processo
     const [form, setForm] = useState<ProcessoInsert>(
         processo
             ? {
-                number: processo.number,
-                client: processo.client,
-                court: processo.court,
-                class: processo.class,
-                subject: processo.subject,
-                active_party: processo.active_party,
-                passive_party: processo.passive_party,
-                responsible: processo.responsible,
-                phase: processo.phase,
-                status: processo.status,
-                next_deadline: processo.next_deadline,
-                last_movement: processo.last_movement,
-                value: processo.value,
-                docs_count: processo.docs_count,
-                owner_id: processo.owner_id,
-            }
-            : { ...emptyForm, owner_id: user?.id ?? null }
+                  number: processo.number,
+                  client: processo.client,
+                  court: processo.court,
+                  class: processo.class,
+                  subject: processo.subject,
+                  active_party: processo.active_party,
+                  passive_party: processo.passive_party,
+                  responsible: processo.responsible,
+                  phase: processo.phase,
+                  status: processo.status,
+                  next_deadline: processo.next_deadline,
+                  last_movement: processo.last_movement,
+                  value: processo.value,
+                  docs_count: processo.docs_count,
+                  owner_id: processo.owner_id,
+              }
+            : { ...emptyForm, owner_id: user?.id ?? null },
     );
 
-    const set = (field: keyof ProcessoInsert, value: any) =>
+    const set = (field: keyof ProcessoInsert, value: ProcessoInsert[keyof ProcessoInsert]) =>
         setForm((prev) => ({ ...prev, [field]: value }));
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -94,11 +88,13 @@ export default function ProcessoModal({ open, onOpenChange, processo }: Processo
     const isPending = createMutation.isPending || updateMutation.isPending;
 
     // Build team member options for responsible dropdown
-    const memberOptions = (teamMembers ?? []).filter(m => m.full_name).map(m => ({
-        value: m.full_name!,
-        label: m.full_name!,
-        role: m.role,
-    }));
+    const memberOptions = (teamMembers ?? [])
+        .filter((m) => m.full_name)
+        .map((m) => ({
+            value: m.full_name!,
+            label: m.full_name!,
+            role: m.role,
+        }));
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -198,10 +194,7 @@ export default function ProcessoModal({ open, onOpenChange, processo }: Processo
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Advogado(a) Responsável</Label>
-                            <Select
-                                value={form.responsible}
-                                onValueChange={(v) => set("responsible", v)}
-                            >
+                            <Select value={form.responsible} onValueChange={(v) => set("responsible", v)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Selecione o responsável" />
                                 </SelectTrigger>
@@ -260,7 +253,10 @@ export default function ProcessoModal({ open, onOpenChange, processo }: Processo
                                 value={form.value}
                                 onChange={(e) => set("value", parseFloat(e.target.value) || 0)}
                             />
-                            <p className="text-xs text-muted-foreground">Valor em discussão no processo. Os honorários (valores cobrados ao cliente) são registrados em Financeiro.</p>
+                            <p className="text-xs text-muted-foreground">
+                                Valor em discussão no processo. Os honorários (valores cobrados ao cliente) são
+                                registrados em Financeiro.
+                            </p>
                         </div>
                     </div>
 

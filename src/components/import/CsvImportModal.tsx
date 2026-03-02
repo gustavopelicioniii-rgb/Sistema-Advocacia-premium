@@ -1,21 +1,16 @@
 import { useState, useRef } from "react";
-import {
-    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { parseCSV, parseNumber, parseDate } from "@/lib/csvParser";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { logger } from "@/lib/logger";
 
 interface CsvImportModalProps {
     open: boolean;
@@ -101,9 +96,15 @@ export default function CsvImportModal({ open, onOpenChange, type }: CsvImportMo
             // Auto-map headers by name similarity
             const autoMap: Record<string, string> = {};
             csvHeaders.forEach((h) => {
-                const lower = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const lower = h
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "");
                 const match = config.fields.find((f) => {
-                    const fLower = f.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const fLower = f.label
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "");
                     return lower.includes(fLower) || fLower.includes(lower) || f.value === lower;
                 });
                 autoMap[h] = match?.value ?? "__skip__";
@@ -118,10 +119,13 @@ export default function CsvImportModal({ open, onOpenChange, type }: CsvImportMo
         let success = 0;
         let errors = 0;
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
 
         // Build records from mapping
         const records = rows.map((row) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const record: Record<string, any> = {};
 
             for (const [csvHeader, dbField] of Object.entries(mapping)) {
@@ -165,7 +169,10 @@ export default function CsvImportModal({ open, onOpenChange, type }: CsvImportMo
                 setImporting(false);
                 return;
             }
-            records.forEach((r, i) => { r.stage_id = firstStageId; r.position = i; });
+            records.forEach((r, i) => {
+                r.stage_id = firstStageId;
+                r.position = i;
+            });
         }
 
         // Batch insert (chunks of 50)
@@ -175,7 +182,7 @@ export default function CsvImportModal({ open, onOpenChange, type }: CsvImportMo
             const { error } = await supabase.from(type === "crm_clients" ? "crm_clients" : type).insert(chunk);
             if (error) {
                 errors += chunk.length;
-                console.error("Import error:", error);
+                logger.captureException(error, { component: "CsvImportModal", action: "import", type });
             } else {
                 success += chunk.length;
             }
@@ -215,15 +222,25 @@ export default function CsvImportModal({ open, onOpenChange, type }: CsvImportMo
                         >
                             <Upload className="h-10 w-10 text-muted-foreground mb-3" />
                             <p className="text-sm font-medium text-foreground">Clique para selecionar um arquivo CSV</p>
-                            <p className="text-xs text-muted-foreground mt-1">Formatos aceitos: .csv, .txt (separado por vírgula ou ponto-e-vírgula)</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Formatos aceitos: .csv, .txt (separado por vírgula ou ponto-e-vírgula)
+                            </p>
                         </div>
-                        <input ref={fileRef} type="file" accept=".csv,.txt,.tsv" className="hidden" onChange={handleFileSelect} />
+                        <input
+                            ref={fileRef}
+                            type="file"
+                            accept=".csv,.txt,.tsv"
+                            className="hidden"
+                            onChange={handleFileSelect}
+                        />
 
                         <div className="rounded-lg border border-border p-4 bg-muted/30">
                             <p className="text-sm font-medium mb-2">💡 Dicas:</p>
                             <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
                                 <li>A primeira linha deve conter os cabeçalhos (nomes das colunas)</li>
-                                <li>Valores monetários podem estar no formato brasileiro (1.234,56) ou inglês (1234.56)</li>
+                                <li>
+                                    Valores monetários podem estar no formato brasileiro (1.234,56) ou inglês (1234.56)
+                                </li>
                                 <li>Datas podem estar em dd/mm/aaaa ou aaaa-mm-dd</li>
                                 <li>Exporte do Excel salvando como "CSV UTF-8"</li>
                             </ul>
@@ -254,15 +271,25 @@ export default function CsvImportModal({ open, onOpenChange, type }: CsvImportMo
                             <div className="grid gap-2">
                                 {headers.map((h) => (
                                     <div key={h} className="flex items-center gap-3">
-                                        <Badge variant="outline" className="min-w-[140px] justify-center font-mono text-xs">
+                                        <Badge
+                                            variant="outline"
+                                            className="min-w-[140px] justify-center font-mono text-xs"
+                                        >
                                             {h}
                                         </Badge>
                                         <span className="text-muted-foreground">→</span>
-                                        <Select value={mapping[h] ?? "__skip__"} onValueChange={(v) => setMapping((prev) => ({ ...prev, [h]: v }))}>
-                                            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                                        <Select
+                                            value={mapping[h] ?? "__skip__"}
+                                            onValueChange={(v) => setMapping((prev) => ({ ...prev, [h]: v }))}
+                                        >
+                                            <SelectTrigger className="w-48">
+                                                <SelectValue />
+                                            </SelectTrigger>
                                             <SelectContent>
                                                 {config.fields.map((f) => (
-                                                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                                    <SelectItem key={f.value} value={f.value}>
+                                                        {f.label}
+                                                    </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -280,34 +307,52 @@ export default function CsvImportModal({ open, onOpenChange, type }: CsvImportMo
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            {headers.filter(h => mapping[h] !== "__skip__").map((h) => (
-                                                <TableHead key={h} className="text-xs whitespace-nowrap">{mapping[h]}</TableHead>
-                                            ))}
+                                            {headers
+                                                .filter((h) => mapping[h] !== "__skip__")
+                                                .map((h) => (
+                                                    <TableHead key={h} className="text-xs whitespace-nowrap">
+                                                        {mapping[h]}
+                                                    </TableHead>
+                                                ))}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {rows.slice(0, 5).map((row, i) => (
                                             <TableRow key={i}>
-                                                {headers.filter(h => mapping[h] !== "__skip__").map((h) => (
-                                                    <TableCell key={h} className="text-xs">{row[h]}</TableCell>
-                                                ))}
+                                                {headers
+                                                    .filter((h) => mapping[h] !== "__skip__")
+                                                    .map((h) => (
+                                                        <TableCell key={h} className="text-xs">
+                                                            {row[h]}
+                                                        </TableCell>
+                                                    ))}
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
                             </div>
                             {rows.length > 5 && (
-                                <p className="text-xs text-muted-foreground mt-1">Mostrando 5 de {rows.length} registros...</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Mostrando 5 de {rows.length} registros...
+                                </p>
                             )}
                         </div>
 
                         <DialogFooter>
-                            <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+                            <Button variant="outline" onClick={handleClose}>
+                                Cancelar
+                            </Button>
                             <Button onClick={handleImport} disabled={importing}>
                                 {importing ? (
-                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando {rows.length} registros...</>
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Importando {rows.length} registros...
+                                    </>
                                 ) : (
-                                    <><Upload className="mr-2 h-4 w-4" />Importar {rows.length} Registros</>
+                                    <>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Importar {rows.length} Registros
+                                    </>
                                 )}
                             </Button>
                         </DialogFooter>

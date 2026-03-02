@@ -5,7 +5,14 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  {
+    ignores: [
+      "dist",
+      "src/components/ui/**",  // shadcn/ui — gerado via CLI, não editar manualmente
+      "supabase/functions/**", // Deno runtime — regras de lint diferentes
+      "tailwind.config.ts",    // config CJS legítimo
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
