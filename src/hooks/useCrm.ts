@@ -37,7 +37,7 @@ export function useCrmStages() {
         queryKey: ["crm_stages"],
         queryFn: async () => {
             const { data, error } = await supabase
-                .from("crm_stages")
+                .from("crm_kanbam")
                 .select("*")
                 .order("position", { ascending: true });
             if (error) throw error;
@@ -55,7 +55,7 @@ export function useCreateCrmStage() {
         mutationFn: async (stage: { name: string; color: string; position: number }) => {
             // owner_id injetado aqui pois o tipo de input não o incluía
             const { data, error } = await supabase
-                .from("crm_stages")
+                .from("crm_kanbam")
                 .insert({ ...stage, owner_id: user?.id ?? null })
                 .select()
                 .single();
@@ -76,7 +76,7 @@ export function useUpdateCrmStage() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: async ({ id, ...updates }: Partial<CrmStage> & { id: string }) => {
-            const { error } = await supabase.from("crm_stages").update(updates).eq("id", id);
+            const { error } = await supabase.from("crm_kanbam").update(updates).eq("id", id);
             if (error) throw error;
         },
         onSuccess: () => {
@@ -90,7 +90,7 @@ export function useDeleteCrmStage() {
     const { toast } = useToast();
     return useMutation({
         mutationFn: async (id: string) => {
-            const { error } = await supabase.from("crm_stages").delete().eq("id", id);
+            const { error } = await supabase.from("crm_kanbam").delete().eq("id", id);
             if (error) throw error;
         },
         onSuccess: () => {

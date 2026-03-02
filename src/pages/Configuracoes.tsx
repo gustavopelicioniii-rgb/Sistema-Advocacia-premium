@@ -6,7 +6,6 @@ import { useProfile } from "@/hooks/useProfile";
 import { ConfigInformacoesTab } from "@/components/configuracoes/ConfigInformacoesTab";
 import { ConfigAssinaturaTab } from "@/components/configuracoes/ConfigAssinaturaTab";
 import { ConfigSenhaTab } from "@/components/configuracoes/ConfigSenhaTab";
-import { ConfigCartoesTab } from "@/components/configuracoes/ConfigCartoesTab";
 import { ConfigLogoCard } from "@/components/configuracoes/ConfigLogoCard";
 import { ConfigGeminiCard } from "@/components/configuracoes/ConfigGeminiCard";
 import { ConfigWhatsAppCard } from "@/components/configuracoes/ConfigWhatsAppCard";
@@ -35,7 +34,7 @@ const Configuracoes = () => {
             </div>
 
             <Tabs defaultValue="informacoes" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 h-auto p-1 gap-1 bg-muted">
+                <TabsList className="grid w-full grid-cols-3 h-auto p-1 gap-1 bg-muted">
                     <TabsTrigger
                         value="informacoes"
                         className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -44,11 +43,25 @@ const Configuracoes = () => {
                     </TabsTrigger>
                     <TabsTrigger value="assinatura">Assinatura</TabsTrigger>
                     <TabsTrigger value="senha">Alterar Senha</TabsTrigger>
-                    <TabsTrigger value="cartoes">Cartões</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="informacoes" className="mt-4">
+                <TabsContent value="informacoes" className="mt-4 space-y-6">
                     <ConfigInformacoesTab />
+
+                    <Separator className="my-6" />
+
+                    <div>
+                        <h2 className="font-display text-xl font-bold text-foreground">Configurações gerais</h2>
+                        <p className="mt-1 text-muted-foreground text-sm">Logo, IA, WhatsApp e integrações.</p>
+                    </div>
+
+                    <ConfigLogoCard />
+                    <ConfigGeminiCard />
+                    <ConfigWhatsAppCard />
+                    <ConfigGoogleCalendarCard />
+                    <ConfigPagamentosCard />
+                    <ConfigAssinaturaEletronicaCard />
+                    <ConfigSessaoCard />
                 </TabsContent>
                 <TabsContent value="assinatura" className="mt-4">
                     <ConfigAssinaturaTab />
@@ -56,25 +69,7 @@ const Configuracoes = () => {
                 <TabsContent value="senha" className="mt-4">
                     <ConfigSenhaTab />
                 </TabsContent>
-                <TabsContent value="cartoes" className="mt-4">
-                    <ConfigCartoesTab />
-                </TabsContent>
             </Tabs>
-
-            <Separator className="my-6" />
-
-            <div>
-                <h2 className="font-display text-xl font-bold text-foreground">Configurações gerais</h2>
-                <p className="mt-1 text-muted-foreground text-sm">Logo, IA, WhatsApp e integrações.</p>
-            </div>
-
-            <ConfigLogoCard />
-            <ConfigGeminiCard />
-            <ConfigWhatsAppCard />
-            <ConfigGoogleCalendarCard />
-            <ConfigPagamentosCard />
-            <ConfigAssinaturaEletronicaCard />
-            <ConfigSessaoCard />
         </motion.div>
     );
 };
