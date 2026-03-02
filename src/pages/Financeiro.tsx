@@ -422,9 +422,8 @@ const Financeiro = () => {
             </CardHeader>
             <CardContent>
               {(expenses ?? []).length === 0 && !expensesLoading && (
-                <div className="mb-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <p className="text-sm text-foreground font-medium">Nenhuma despesa registrada. Registre luz, água, assinaturas e outros gastos para ver os totais aqui.</p>
-                  <Button onClick={handleNewExpense}><Plus className="mr-2 h-4 w-4" />Nova Despesa</Button>
+                <div className="mb-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+                  <p className="text-sm text-foreground font-medium">Nenhuma despesa registrada. Registre luz, água, assinaturas e outros gastos para ver os totais aqui. Use o botão &quot;Nova Despesa&quot; acima.</p>
                 </div>
               )}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -462,12 +461,11 @@ const Financeiro = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <CardHeader className="pb-4">
               <div>
                 <CardTitle className="font-display text-xl">Todas as despesas</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">Clique no ícone de lápis ou duplo clique na linha para editar.</p>
               </div>
-              <Button onClick={handleNewExpense}><Plus className="mr-2 h-4 w-4" />Nova Despesa</Button>
             </CardHeader>
             <CardContent>
               {expensesLoading ? (
@@ -479,8 +477,7 @@ const Financeiro = () => {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <TrendingDown className="h-12 w-12 text-muted-foreground/50" />
                   <p className="mt-4 text-lg font-medium text-foreground">Nenhuma despesa registrada</p>
-                  <p className="mt-1 text-sm text-muted-foreground max-w-sm">Registre luz, água, assinaturas e outros gastos. Use o botão abaixo para criar a primeira despesa.</p>
-                  <Button onClick={handleNewExpense} className="mt-4"><Plus className="mr-2 h-4 w-4" />Nova Despesa</Button>
+                  <p className="mt-1 text-sm text-muted-foreground max-w-sm">Registre luz, água, assinaturas e outros gastos. Use o botão <strong>Nova Despesa</strong> no card &quot;Gastos do escritório&quot; acima para criar a primeira despesa.</p>
                 </div>
               ) : (
                 <Table>

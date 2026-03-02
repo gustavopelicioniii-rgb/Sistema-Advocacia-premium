@@ -26,12 +26,12 @@ const MODULOS = [
   },
   {
     slug: "fgts",
-    titulo: "FGTS",
-    descricao: "Depósitos não realizados, atualização TR, multa 40%, correção revisional, simulação de atrasados.",
+    titulo: "Correção do FGTS",
+    descricao: "Importe o extrato em PDF, configure índice (INPC) e juros. Detalhamento das contribuições e resultado.",
     categoria: "Bancário",
-    href: "#",
+    href: "/calculadora/fgts",
     icon: Building2,
-    status: "Em breve",
+    status: "Disponível",
   },
   {
     slug: "pasep",
@@ -144,15 +144,13 @@ const Calculadora = () => {
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-            Calculadora Jurídica Estratégica
-          </h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Calculadoras</h1>
           <p className="text-muted-foreground text-sm sm:text-base mt-1">
-            Central de cálculos jurídicos: correção monetária, trabalhista, FGTS, revisional e mais. Resultados com memória detalhada para anexar ao processo.
+            Central de cálculos jurídicos: correção monetária, FGTS, trabalhista, divórcio, INSS, dosimetria, progressão de regime, aluguel, pensão, superendividamento e mais. Resultados com memória detalhada para anexar ao processo.
           </p>
         </div>
         <Button variant="default" className="shrink-0" asChild>
-          <Link to="/calculadora/meus-calculos">Ir para Meus Cálculos</Link>
+          <Link to="/calculadora/meus-calculos">Meus Cálculos</Link>
         </Button>
       </div>
 

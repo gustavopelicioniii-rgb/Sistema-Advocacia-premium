@@ -26,6 +26,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Calculadora from "./pages/Calculadora";
 import CorrecaoValores from "./pages/calculadora/CorrecaoValores";
+import CorrecaoFGTS from "./pages/calculadora/CorrecaoFGTS";
 import MeusCalculos from "./pages/calculadora/MeusCalculos";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
@@ -102,7 +103,8 @@ const App = () => {
               } />
               <Route path="/whatsapp" element={<WhatsAppPage />} />
               <Route path="/calculadora" element={<Calculadora />} />
-              <Route path="/calculadora/correcao" element={<CorrecaoValores />} />
+              <Route path="/calculadora/correcao" element={<ErrorBoundary><CorrecaoValores /></ErrorBoundary>} />
+              <Route path="/calculadora/fgts" element={<ErrorBoundary><CorrecaoFGTS /></ErrorBoundary>} />
               <Route path="/calculadora/meus-calculos" element={<MeusCalculos />} />
               <Route path="/menu" element={<MobileMenu />} />
             </Route>

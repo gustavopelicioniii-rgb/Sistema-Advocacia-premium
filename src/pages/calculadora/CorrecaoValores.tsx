@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Download, Calculator } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import CalculatorLayout from "@/components/calculadora/CalculatorLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -44,6 +44,8 @@ const CorrecaoValores = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [nomeCalculo, setNomeCalculo] = useState("");
+  const [cliente, setCliente] = useState("");
   const [valorInicial, setValorInicial] = useState("");
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
@@ -52,6 +54,9 @@ const CorrecaoValores = () => {
   const [percentualMensal, setPercentualMensal] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<CorrecaoValoresResult | null>(null);
+
+  const STEPS = [{ step: 1, label: "Dados do cálculo" }, { step: 2, label: "Resultado" }];
+  const activeStep = resultado ? 2 : 1;
 
   // Preencher formulário quando vier de Meus Cálculos (state com parametros)
   useEffect(() => {
@@ -183,7 +188,7 @@ const CorrecaoValores = () => {
   };
 
   const handleExportar = () => {
-    if (!resultado?.timeline) return;
+    if (!resultado?.timeline?.length) return;
     const headers = ["Mês", "Valor início", "Correção", "Valor pós-correção", "Juros", "Valor final"];
     const rows = resultado.timeline.map((t) =>
       [t.mes, t.valorInicio, t.correcao, t.valorAposCorrecao, t.juros, t.valorFinal].join(";")
@@ -200,152 +205,162 @@ const CorrecaoValores = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+    <CalculatorLayout
+      title="Correção de Valores"
+      steps={STEPS}
+      activeStep={activeStep}
+      helpHref="#"
+      primaryButton={
+        resultado
+          ? { label: "Novo Cálculo", onClick: () => setResultado(null) }
+          : {
+              label: "CALCULAR",
+              onClick: handleCalcular,
+              disabled: loading,
+              loading,
+            }
+      }
     >
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/calculadora")}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Correção de Valores</h1>
-          <p className="text-sm text-muted-foreground">
-            Atualização monetária e juros. Linha do tempo mês a mês e memória detalhada.
-          </p>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Calculator className="h-5 w-5" /> Parâmetros
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Valor inicial (R$) *</Label>
-              <Input
-                placeholder="0,00"
-                value={valorInicial}
-                onChange={(e) => setValorInicial(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Data inicial *</Label>
-              <Input
-                type="date"
-                value={dataInicial}
-                onChange={(e) => setDataInicial(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Data final *</Label>
-              <Input
-                type="date"
-                value={dataFinal}
-                onChange={(e) => setDataFinal(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Índice *</Label>
-              <Select value={indice} onValueChange={setIndice}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {INDICES.map((i) => (
-                    <SelectItem key={i} value={i}>{i}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de juros *</Label>
-              <Select value={tipoJuros} onValueChange={setTipoJuros}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIPOS_JUROS.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Percentual mensal (opcional)</Label>
-              <Input
-                placeholder="Ex: 1 ou 0,5"
-                value={percentualMensal}
-                onChange={(e) => setPercentualMensal(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Deixe vazio para usar 1% a.m. (tipo &quot;1% ao mês&quot;) ou taxa SELIC conforme o tipo de juros.
-              </p>
-            </div>
-          </div>
-          <Button onClick={handleCalcular} disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Realizar Cálculo
-          </Button>
-        </CardContent>
-      </Card>
-
-      {resultado && (
-        <>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Resultado</CardTitle>
-              <Button variant="outline" size="sm" onClick={handleExportar}>
-                <Download className="h-4 w-4 mr-2" /> Exportar tabela
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Valor inicial:</span>{" "}
-                  <strong>{formatCurrency(resultado.valorInicial)}</strong>
-                </p>
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Valor final:</span>{" "}
-                  <strong className="text-primary">{formatCurrency(resultado.valorFinal)}</strong>
-                </p>
+      {!resultado ? (
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="nomeCalculo">Nome do cálculo</Label>
+                <Input
+                  id="nomeCalculo"
+                  placeholder="Digite um nome para identificar o cálculo"
+                  value={nomeCalculo}
+                  onChange={(e) => setNomeCalculo(e.target.value)}
+                />
               </div>
-              <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                {resultado.memoriaDetalhada?.resumo}
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Mês</th>
-                      <th className="text-right p-2">Valor início</th>
-                      <th className="text-right p-2">Correção</th>
-                      <th className="text-right p-2">Juros</th>
-                      <th className="text-right p-2">Valor final</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resultado.timeline.map((t) => (
-                      <tr key={t.mes} className="border-b border-border/50">
-                        <td className="p-2">{t.mes}</td>
-                        <td className="text-right p-2">{formatCurrency(t.valorInicio)}</td>
-                        <td className="text-right p-2">{formatCurrency(t.correcao)}</td>
-                        <td className="text-right p-2">{formatCurrency(t.juros)}</td>
-                        <td className="text-right p-2 font-medium">{formatCurrency(t.valorFinal)}</td>
-                      </tr>
+              <div className="space-y-2">
+                <Label htmlFor="cliente">Cliente *</Label>
+<Select value={cliente === "" ? " " : cliente} onValueChange={(v) => setCliente(v === " " ? "" : v)}>
+                    <SelectTrigger id="cliente">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value=" ">Selecione...</SelectItem>
+                    </SelectContent>
+                  </Select>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Índice para corrigir os valores (recomendado INPC) *</Label>
+                <Select value={indice} onValueChange={setIndice}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDICES.map((i) => (
+                      <SelectItem key={i} value={i}>{i}</SelectItem>
                     ))}
-                  </tbody>
-                </table>
+                  </SelectContent>
+                </Select>
               </div>
-            </CardContent>
-          </Card>
-        </>
+              <div className="space-y-2">
+                <Label>Valor inicial (R$) *</Label>
+                <Input
+                  placeholder="0,00"
+                  value={valorInicial}
+                  onChange={(e) => setValorInicial(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data inicial *</Label>
+                <Input
+                  type="date"
+                  value={dataInicial}
+                  onChange={(e) => setDataInicial(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data final *</Label>
+                <Input
+                  type="date"
+                  value={dataFinal}
+                  onChange={(e) => setDataFinal(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo de juros *</Label>
+                <Select value={tipoJuros} onValueChange={setTipoJuros}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_JUROS.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Percentual mensal (opcional)</Label>
+                <Input
+                  placeholder="Ex: 1 ou 0,5"
+                  value={percentualMensal}
+                  onChange={(e) => setPercentualMensal(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Deixe vazio para usar 1% a.m. ou taxa SELIC conforme o tipo de juros.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Resultado</CardTitle>
+            <Button variant="outline" size="sm" onClick={handleExportar}>
+              <Download className="h-4 w-4 mr-2" /> Exportar tabela
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <p className="text-sm">
+                <span className="text-muted-foreground">Valor inicial:</span>{" "}
+                <strong>{formatCurrency(Number(resultado?.valorInicial) || 0)}</strong>
+              </p>
+              <p className="text-sm">
+                <span className="text-muted-foreground">Valor final:</span>{" "}
+                <strong className="text-primary">{formatCurrency(Number(resultado?.valorFinal) || 0)}</strong>
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+              {resultado?.memoriaDetalhada?.resumo ?? ""}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">Mês</th>
+                    <th className="text-right p-2">Valor início</th>
+                    <th className="text-right p-2">Correção</th>
+                    <th className="text-right p-2">Juros</th>
+                    <th className="text-right p-2">Valor final</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(resultado.timeline ?? []).map((t) => (
+                    <tr key={t.mes} className="border-b border-border/50">
+                      <td className="p-2">{t.mes}</td>
+                      <td className="text-right p-2">{formatCurrency(t.valorInicio)}</td>
+                      <td className="text-right p-2">{formatCurrency(t.correcao)}</td>
+                      <td className="text-right p-2">{formatCurrency(t.juros)}</td>
+                      <td className="text-right p-2 font-medium">{formatCurrency(t.valorFinal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
-    </motion.div>
+    </CalculatorLayout>
   );
 };
 
