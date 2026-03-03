@@ -31,6 +31,7 @@ export function useEscavadorImport() {
 
     const { toast } = useToast();
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     const importarProcessos = useCallback(
         async (params: ImportParams) => {
@@ -46,11 +47,16 @@ export function useEscavadorImport() {
                     throw new Error("Supabase URL não configurada");
                 }
 
-                // Chamar Edge Function
+                if (!anonKey) {
+                    throw new Error("Chave Supabase Anon não configurada no .env");
+                }
+
+                // Chamar Edge Function com autenticação
                 const response = await fetch(`${supabaseUrl}/functions/v1/importar-processos`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
+                        "Authorization": `Bearer ${anonKey}`,
                     },
                     body: JSON.stringify({
                         oab_estado: params.oab_estado.toUpperCase(),
@@ -102,7 +108,7 @@ export function useEscavadorImport() {
                 throw err;
             }
         },
-        [supabaseUrl, toast],
+        [supabaseUrl, anonKey, toast],
     );
 
     const reset = useCallback(() => {

@@ -30,10 +30,8 @@ export function useProcessosMonitoring() {
 
     const { toast } = useToast();
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    /**
-     * Buscar processos do banco de dados
-     */
     const fetchProcessos = useCallback(async () => {
         setState((prev) => ({
             ...prev,
@@ -42,22 +40,23 @@ export function useProcessosMonitoring() {
         }));
 
         try {
-            // Nota: Esta é uma operação real que requer autenticação
-            // Você precisará passar o token de autenticação do usuário
-            // Por enquanto, estou deixando um placeholder
+            if (!supabaseUrl || !anonKey) {
+                throw new Error("Supabase URL ou Anon Key nao configurada");
+            }
 
-            const response = await fetch(`${supabaseUrl}/rest/v1/processos_ativos`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    // Aqui você adicionar o auth token: 'Authorization': `Bearer ${token}`
+            const response = await fetch(
+                `${supabaseUrl}/rest/v1/processos?ativo=eq.true&select=id,numero_processo,tribunal,ultima_movimentacao,ultima_movimentacao_data,last_checked_at,ativo&order=created_at.desc`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": anonKey,
+                        "Authorization": `Bearer ${anonKey}`,
+                    },
                 },
-            });
+            );
 
             if (!response.ok) {
-                if (response.status === 401) {
-                    throw new Error("Não autenticado. Faça login para ver seus processos.");
-                }
                 throw new Error(`Erro ao buscar processos: ${response.status}`);
             }
 
@@ -80,19 +79,10 @@ export function useProcessosMonitoring() {
                 error: errorMessage,
             }));
 
-            toast({
-                title: "Erro ao buscar processos",
-                description: errorMessage,
-                variant: "destructive",
-            });
-
-            throw err;
+            return [];
         }
-    }, [supabaseUrl, toast]);
+    }, [supabaseUrl, anonKey]);
 
-    /**
-     * Disparar verificação manual via Edge Function
-     */
     const verificarAgora = useCallback(async () => {
         setState((prev) => ({
             ...prev,
@@ -101,19 +91,21 @@ export function useProcessosMonitoring() {
         }));
 
         try {
-            if (!supabaseUrl) {
-                throw new Error("Supabase URL não configurada");
+            if (!supabaseUrl || !anonKey) {
+                throw new Error("Supabase URL ou Anon Key nao configurada");
             }
 
             const response = await fetch(`${supabaseUrl}/functions/v1/verificar-movimentacoes`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "Authorization": `Bearer ${anonKey}`,
                 },
+                body: JSON.stringify({}),
             });
 
             if (!response.ok) {
-                throw new Error(`Erro ao verificar movimentações: ${response.status}`);
+                throw new Error(`Erro ao verificar movimentacoes: ${response.status}`);
             }
 
             const data = await response.json();
@@ -126,12 +118,11 @@ export function useProcessosMonitoring() {
             }));
 
             toast({
-                title: "Verificação concluída",
-                description: `${data.atualizacoes || 0} atualização(ões) encontrada(s)`,
+                title: "Verificacao concluida",
+                description: `${data.processos_verificados || 0} processos verificados, ${data.atualizacoes || 0} atualizacao(oes)`,
                 variant: "default",
             });
 
-            // Recarregar processos após verificação
             await fetchProcessos();
 
             return data;
@@ -145,23 +136,38 @@ export function useProcessosMonitoring() {
             }));
 
             toast({
-                title: "Erro na verificação",
+                title: "Erro na verificacao",
                 description: errorMessage,
                 variant: "destructive",
             });
 
             throw err;
         }
-    }, [supabaseUrl, toast, fetchProcessos]);
+    }, [supabaseUrl, anonKey, toast, fetchProcessos]);
 
-    /**
-     * Marcar processo como inativo
-     */
     const marcarComoInativo = useCallback(
         async (processoId: string) => {
             try {
-                // Nota: Esta operação requer autenticação
-                // Implementar chamada à API REST do Supabase para atualizar
+                if (!supabaseUrl || !anonKey) {
+                    throw new Error("Supabase nao configurado");
+                }
+
+                const response = await fetch(
+                    `${supabaseUrl}/rest/v1/processos?id=eq.${processoId}`,
+                    {
+                        method: "PATCH",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "apikey": anonKey,
+                            "Authorization": `Bearer ${anonKey}`,
+                        },
+                        body: JSON.stringify({ ativo: false }),
+                    },
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Erro ao desativar: ${response.status}`);
+                }
 
                 setState((prev) => ({
                     ...prev,
@@ -170,7 +176,7 @@ export function useProcessosMonitoring() {
 
                 toast({
                     title: "Processo desativado",
-                    description: "O processo não será mais monitorado",
+                    description: "O processo nao sera mais monitorado",
                     variant: "default",
                 });
             } catch (err) {
@@ -181,19 +187,13 @@ export function useProcessosMonitoring() {
                     description: errorMessage,
                     variant: "destructive",
                 });
-
-                throw err;
             }
         },
-        [toast],
+        [supabaseUrl, anonKey, toast],
     );
 
-    /**
-     * Setup: Carregar processos ao montar
-     */
     useEffect(() => {
-        // Descomentar após implementar autenticação
-        // fetchProcessos()
+        fetchProcessos();
     }, [fetchProcessos]);
 
     return {

@@ -89,9 +89,9 @@ const Processos = () => {
 
     const filtered = (processos ?? []).filter(
         (p) =>
-            p.client.toLowerCase().includes(search.toLowerCase()) ||
-            p.number.includes(search) ||
-            p.subject.toLowerCase().includes(search.toLowerCase()),
+            (p.client ?? "").toLowerCase().includes(search.toLowerCase()) ||
+            (p.number ?? "").includes(search) ||
+            (p.subject ?? "").toLowerCase().includes(search.toLowerCase()),
     );
 
     const { page, pageCount, pageData, totalItems, goTo } = usePagination(filtered, 20);

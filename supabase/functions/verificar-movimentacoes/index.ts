@@ -12,10 +12,17 @@ interface Processo {
     ativo: boolean;
 }
 
-interface EscavadorProcesso {
-    numero_processo: string;
-    ultima_movimentacao: string;
-    data_ultima_movimentacao: string;
+interface EscavadorMovimentacao {
+    id?: string;
+    descricao: string;
+    data?: string;
+    tipo?: string;
+}
+
+interface EscavadorResponse {
+    movimentacoes?: EscavadorMovimentacao[];
+    data?: EscavadorMovimentacao[];
+    erro?: string;
 }
 
 // Verifica se last_checked_at é maior que 24 horas atrás
@@ -90,54 +97,72 @@ serve(async (req) => {
                     continue;
                 }
 
-                // Extrair OAB do tribunal (formato típico: "SP" ou similar)
-                // Nota: Isso depende de como o tribunal é armazenado
-                // Aqui estou assumindo um padrão, você pode ajustar
-                const oabEstado = processo.tribunal.substring(0, 2); // Pega os 2 primeiros chars
+                // Chamar API Escavador usando número CNJ para obter movimentações
+                // Endpoint: GET /api/v2/processos/numero_cnj/{numero}/movimentacoes
+                const escavadorUrl = `https://api.escavador.com/api/v2/processos/numero_cnj/${encodeURIComponent(processo.numero_processo)}/movimentacoes`;
 
-                // Chamar API Escavador para verificar atualizações
-                const escavadorUrl = `https://api.escavador.com/api/v2/advogado/processos?oab_estado=${encodeURIComponent(oabEstado)}&oab_numero=`;
+                console.log(`Chamando API Escavador: ${escavadorUrl}`);
 
                 const escavadorResponse = await fetch(escavadorUrl, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${escavadorToken}`,
                         "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
                     },
                 });
 
                 if (!escavadorResponse.ok) {
-                    console.error(`Erro ao buscar processo ${processo.numero_processo}: ${escavadorResponse.status}`);
+                    const errorBody = await escavadorResponse.text();
+                    console.error(`Erro ao buscar processo ${processo.numero_processo}: ${escavadorResponse.status} - ${errorBody}`);
                     processosComErro.push({
                         numero_processo: processo.numero_processo,
                         erro: `HTTP ${escavadorResponse.status}`,
+                        detalhes: errorBody,
                     });
                     continue;
                 }
 
                 const escavadorData = await escavadorResponse.json();
 
-                // Procurar o processo específico na resposta
-                const processoAtualizado = escavadorData.processos?.find(
-                    (p: EscavadorProcesso) => p.numero_processo === processo.numero_processo,
-                );
+                // Parse movimentações do endpoint /processos/numero_cnj/{numero}/movimentacoes
+                // Resposta esperada: array de movimentações ou objeto com movimentações
+                const movimentacoes = escavadorData.movimentacoes || escavadorData.data || [];
 
-                if (!processoAtualizado) {
-                    console.log(`Processo ${processo.numero_processo} não encontrado na API`);
+                if (!Array.isArray(movimentacoes) || movimentacoes.length === 0) {
+                    console.log(`Nenhuma movimentação encontrada para ${processo.numero_processo}`);
+                    // Atualizar apenas last_checked_at
+                    await supabase
+                        .from("processos")
+                        .update({
+                            last_checked_at: new Date().toISOString(),
+                        })
+                        .eq("id", processo.id);
                     continue;
                 }
 
-                // Comparar movimentação
+                // Pegar a movimentação mais recente (primeira do array)
+                const ultimaMovimentacao = movimentacoes[0];
+
+                if (!ultimaMovimentacao || !ultimaMovimentacao.descricao) {
+                    console.log(`Movimentação sem descrição para ${processo.numero_processo}`);
+                    continue;
+                }
+
+                // Comparar movimentação (verificar se há mudança)
+                const novaMovimentacao = ultimaMovimentacao.descricao;
+                const novaDataMovimentacao = ultimaMovimentacao.data || new Date().toISOString();
+
                 if (
-                    processoAtualizado.ultima_movimentacao !== processo.ultima_movimentacao ||
-                    processoAtualizado.data_ultima_movimentacao !== processo.ultima_movimentacao_data
+                    novaMovimentacao !== processo.ultima_movimentacao ||
+                    novaDataMovimentacao !== processo.ultima_movimentacao_data
                 ) {
                     // Houve atualização! Salvar no banco
                     const { error: updateError } = await supabase
                         .from("processos")
                         .update({
-                            ultima_movimentacao: processoAtualizado.ultima_movimentacao,
-                            ultima_movimentacao_data: processoAtualizado.data_ultima_movimentacao,
+                            ultima_movimentacao: novaMovimentacao,
+                            ultima_movimentacao_data: novaDataMovimentacao,
                             last_checked_at: new Date().toISOString(),
                         })
                         .eq("id", processo.id);
@@ -152,7 +177,7 @@ serve(async (req) => {
                         atualizacoes++;
                         processosAtualizados.push({
                             numero_processo: processo.numero_processo,
-                            nova_movimentacao: processoAtualizado.ultima_movimentacao,
+                            nova_movimentacao: novaMovimentacao,
                         });
 
                         // TODO: Enviar notificação ao usuário aqui
@@ -161,14 +186,16 @@ serve(async (req) => {
                     }
                 } else {
                     // Apenas atualizar last_checked_at
-                    await supabase
+                    const { error: checkError } = await supabase
                         .from("processos")
                         .update({
                             last_checked_at: new Date().toISOString(),
                         })
                         .eq("id", processo.id);
 
-                    console.log(`Processo ${processo.numero_processo} verificado (sem mudanças)`);
+                    if (!checkError) {
+                        console.log(`Processo ${processo.numero_processo} verificado (sem mudanças)`);
+                    }
                 }
             } catch (error) {
                 console.error(`Erro ao processar ${processo.numero_processo}:`, error);
