@@ -86,9 +86,20 @@ export function useCreateProcesso() {
             // O enforcement do limite de plano é feito server-side pelo trigger
             // `trg_check_process_plan_limit` (migration 20260301000000).
             // owner_id é sempre sobrescrito pelo usuário autenticado (segurança multi-tenant).
+            // Campos de monitoramento Escavador preenchidos automaticamente:
+            // - numero_processo: espelhado do number (CNJ) para a Edge Function localizar
+            // - ativo: true para entrar no ciclo de monitoramento diário
+            // - last_checked_at: 25h no passado para ser verificado na próxima execução
+            const pastDate = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
             const { data, error } = await supabase
                 .from("processos")
-                .insert({ ...processo, owner_id: user?.id ?? null })
+                .insert({
+                    ...processo,
+                    owner_id: user?.id ?? null,
+                    numero_processo: processo.number,
+                    ativo: true,
+                    last_checked_at: pastDate,
+                })
                 .select()
                 .single();
 

@@ -158,12 +158,14 @@ serve(async (req) => {
                     novaDataMovimentacao !== processo.ultima_movimentacao_data
                 ) {
                     // Houve atualização! Salvar no banco
+                    // Atualiza campos Escavador + campo last_movement do frontend
                     const { error: updateError } = await supabase
                         .from("processos")
                         .update({
                             ultima_movimentacao: novaMovimentacao,
                             ultima_movimentacao_data: novaDataMovimentacao,
                             last_checked_at: new Date().toISOString(),
+                            last_movement: novaMovimentacao,
                         })
                         .eq("id", processo.id);
 
