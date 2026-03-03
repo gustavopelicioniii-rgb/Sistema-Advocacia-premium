@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Scale, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Scale, CheckCircle2, AlertCircle, RefreshCw, Webhook } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useProcessMonitorLogs } from "@/hooks/useProcessMonitorLogs";
 import { formatDistanceToNow } from "date-fns";
@@ -29,6 +29,11 @@ const typeConfig: Record<ProcessMonitorLogType, { label: string; icon: typeof Sc
     label: "Erro na API",
     icon: AlertCircle,
     className: "text-destructive",
+  },
+  callback_recebido: {
+    label: "Callback recebido",
+    icon: Webhook,
+    className: "text-blue-500",
   },
 };
 
@@ -62,39 +67,57 @@ const ProcessMonitorResults = () => {
           Consultas de processos
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Resultado do monitoramento diário (API Escavador). Novas movimentações relevantes geram notificação na Inbox.
+          Monitoramento de processos (API Escavador). Atualizações são recebidas automaticamente via callback.
         </p>
       </CardHeader>
       <CardContent>
         {!hasAny ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
-            Nenhuma consulta registrada ainda. O cron diário irá consultar cada processo até 1x por dia.
+            Nenhuma atividade registrada ainda. Processos importados receberão atualizações automaticamente via callback.
           </p>
         ) : (
           <ul className="space-y-3">
             {list.map((log: ProcessMonitorLog) => {
               const config = typeConfig[log.log_type];
               const Icon = config.icon;
+              const isHighlight = log.log_type === "atualizacao_encontrada" || log.log_type === "callback_recebido";
+              const isError = log.log_type === "erro_api";
+              const isCallbackSource = (log.details as Record<string, unknown>)?.source === "callback";
+
               return (
                 <li
                   key={log.id}
-                  className="flex items-start gap-3 rounded-lg border border-border/50 bg-muted/20 p-3 text-sm"
+                  className={`flex items-start gap-3 rounded-lg border p-3 text-sm transition-all ${
+                    isHighlight
+                      ? "border-blue-500/30 bg-blue-500/5 shadow-sm shadow-blue-500/10"
+                      : isError
+                        ? "border-red-500/20 bg-red-500/5"
+                        : "border-border/50 bg-muted/20"
+                  }`}
                 >
-                  <div className={`shrink-0 mt-0.5 ${config.className}`}>
+                  <div className={`shrink-0 mt-0.5 ${config.className} ${isHighlight ? "animate-pulse" : ""}`}>
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground">
-                      {log.process_number ?? "Processo"}
-                      <span className="text-muted-foreground font-normal ml-1">— {config.label}</span>
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className={`font-medium ${isHighlight ? "text-blue-700 dark:text-blue-300" : "text-foreground"}`}>
+                        {log.process_number ?? "Processo"}
+                        <span className={`font-normal ml-1 ${isHighlight ? "text-blue-600/70 dark:text-blue-400/70" : "text-muted-foreground"}`}>— {config.label}</span>
+                      </p>
+                      {isCallbackSource && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                          <Webhook className="h-2.5 w-2.5" />
+                          CALLBACK
+                        </span>
+                      )}
+                    </div>
                     <p className="text-muted-foreground mt-0.5">{log.message ?? "—"}</p>
                     <p className="text-xs text-muted-foreground mt-1">{formatLogTime(log.created_at)}</p>
                   </div>
                   {log.process_id && (
                     <Link
                       to={`/processos/${log.process_id}`}
-                      className="shrink-0 text-xs text-primary hover:underline"
+                      className={`shrink-0 text-xs hover:underline ${isHighlight ? "text-blue-600 dark:text-blue-400 font-medium" : "text-primary"}`}
                     >
                       Ver processo
                     </Link>

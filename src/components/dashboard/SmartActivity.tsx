@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Brain, Users, DollarSign, Scale, RefreshCw, Eye, FileText, CheckCircle2, Info } from "lucide-react";
+import { Scale, RefreshCw, FileText, CheckCircle2, Info, Webhook } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useInbox } from "@/hooks/useInbox";
 import { formatDistanceToNow } from "date-fns";
@@ -14,6 +14,7 @@ const typeStyles: Record<string, string> = {
   document: "bg-muted",
   task: "bg-success/10 text-success",
   system: "bg-muted",
+  callback: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
 };
 
 function relativeTime(date: string): string {
@@ -33,7 +34,18 @@ const SmartActivity = () => {
     const list = (inboxItems ?? []).slice(0, 15).map((item) => {
       let type = "process";
       let Icon = RefreshCw;
-      if (item.tipo === "Publicação") {
+      let isCallback = false;
+
+      // Detectar callbacks do Escavador (movimentações via callback)
+      const isEscavadorCallback = item.tipo === "Andamento" &&
+        (item.titulo.toLowerCase().includes("movimentação relevante") ||
+         item.descricao?.toLowerCase().includes("via callback"));
+
+      if (isEscavadorCallback) {
+        type = "callback";
+        Icon = Webhook;
+        isCallback = true;
+      } else if (item.tipo === "Publicação") {
         type = "process";
         Icon = Scale;
       } else if (item.tipo === "Andamento") {
@@ -55,6 +67,8 @@ const SmartActivity = () => {
         time: relativeTime(item.created_at),
         icon: Icon,
         type,
+        isCallback,
+        unread: !item.lido,
       };
     });
     return list;
@@ -73,13 +87,22 @@ const SmartActivity = () => {
             activities.map((a, i) => (
               <div
                 key={i}
-                className="flex gap-3 group cursor-pointer hover:bg-muted/50 rounded-lg p-2 -mx-2 transition-all"
+                className={`flex gap-3 group cursor-pointer rounded-lg p-2 -mx-2 transition-all ${
+                  a.isCallback
+                    ? "bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20 ring-1 ring-blue-500/10"
+                    : "hover:bg-muted/50"
+                }`}
               >
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${typeStyles[a.type] || typeStyles.process}`}>
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${typeStyles[a.type] || typeStyles.process} ${a.isCallback ? "animate-pulse" : ""}`}>
                   <a.icon className="h-4 w-4" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground group-hover:text-primary transition-colors">{a.text}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm group-hover:text-primary transition-colors ${a.isCallback ? "font-semibold text-blue-700 dark:text-blue-300" : "text-foreground"}`}>{a.text}</p>
+                    {a.unread && (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500 animate-pulse" />
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">{a.time}</p>
                 </div>
               </div>

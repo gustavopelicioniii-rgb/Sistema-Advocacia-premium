@@ -1,67 +1,29 @@
 /**
- * Cron diário: monitoramento de processos via API Escavador.
- * - Consulta 1x por dia por processo (last_checked_at >= 24h).
- * - Compara movimentações com as salvas, filtra por palavras-chave, salva novas e notifica.
+ * Health-check semanal: verifica processos com status inconsistente.
  *
- * Agendar: cron "0 6 * * *" (ex.: 6h todo dia) ou chamar via POST com Authorization.
- * Env: ESCAVADOR_API_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
- * Env opcional: CRON_SECRET — se definido, exige Authorization: Bearer <CRON_SECRET>.
+ * MIGRADO de polling diário (V1) para health-check semanal (V2 event-driven).
+ * - NÃO consulta movimentações na API Escavador
+ * - Apenas verifica processos com status_atualizacao = 'PENDING' há mais de 48h
+ * - Re-solicita atualização com enviar_callback=1 para esses processos
+ *
+ * Agendar: cron "0 6 * * 0" (domingos 6h) ou chamar via POST.
+ * Env: ESCAVADOR_API_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Env opcional: CRON_SECRET
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ESCAVADOR_BASE = "https://api.escavador.com/api/v2";
-const RELEVANT_KEYWORDS = ["Sentença", "Decisão", "Decisão interlocutória", "Despacho", "Publicação", "Intimação"];
-const HOURS_BETWEEN_CHECKS = 24;
+const PENDING_TIMEOUT_HOURS = 48;
 
-/** Log estruturado para produção. */
 function logStructured(
     level: "info" | "warn" | "error",
     message: string,
-    meta?: { process_id?: string; process_number?: string; run_id?: string; [k: string]: unknown },
+    meta?: Record<string, unknown>,
 ) {
-    const payload = { ts: new Date().toISOString(), level, message, ...meta };
+    const payload = { ts: new Date().toISOString(), level, fn: "process-monitor-cron", message, ...meta };
     if (level === "error") console.error(JSON.stringify(payload));
     else console.log(JSON.stringify(payload));
-}
-
-function shouldCheckProcess(lastCheckedAt: string | null): boolean {
-    if (!lastCheckedAt) return true;
-    const last = new Date(lastCheckedAt).getTime();
-    const diffHours = (Date.now() - last) / (1000 * 60 * 60);
-    return diffHours >= HOURS_BETWEEN_CHECKS;
-}
-
-function isRelevantMovement(text: string): boolean {
-    if (!text || typeof text !== "string") return false;
-    const n = text
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase();
-    return RELEVANT_KEYWORDS.some((kw) =>
-        n.includes(
-            kw
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .toLowerCase(),
-        ),
-    );
-}
-
-function detectMovementType(text: string): string {
-    if (!text || typeof text !== "string") return "Andamento";
-    const n = text
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase();
-    for (const kw of RELEVANT_KEYWORDS) {
-        const kwNorm = kw
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
-        if (n.includes(kwNorm)) return kw;
-    }
-    return "Andamento";
 }
 
 function normalizeNum(num: string): string {
@@ -70,18 +32,32 @@ function normalizeNum(num: string): string {
     return `${c.slice(0, 7)}-${c.slice(7, 9)}.${c.slice(9, 13)}.${c.slice(13, 14)}.${c.slice(14, 16)}.${c.slice(16, 20)}`;
 }
 
-async function fetchMovimentacoes(processNumber: string, token: string) {
-    const numero = normalizeNum(processNumber);
-    const url = `${ESCAVADOR_BASE}/processos/numero_cnj/${encodeURIComponent(numero)}/movimentacoes?limit=100`;
-    const res = await fetch(url, {
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Requested-With": "XMLHttpRequest",
-        },
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) return { data: null, error: (body as { error?: string }).error || res.statusText };
-    return { data: body as { items: { id: number; data: string; tipo: string; conteudo: string }[] }, error: null };
+async function solicitarAtualizacao(
+    numeroCnj: string,
+    token: string,
+): Promise<{ updateId: number | null; error: string | null }> {
+    const numero = normalizeNum(numeroCnj);
+    const url = `${ESCAVADOR_BASE}/processos/numero_cnj/${encodeURIComponent(numero)}/solicitar-atualizacao`;
+
+    try {
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify({ enviar_callback: 1 }),
+        });
+
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            return { updateId: null, error: (body as { error?: string }).error || `HTTP ${res.status}` };
+        }
+        return { updateId: (body as { id: number }).id, error: null };
+    } catch (err) {
+        return { updateId: null, error: err instanceof Error ? err.message : String(err) };
+    }
 }
 
 const json = (body: unknown, status: number) =>
@@ -91,7 +67,6 @@ const json = (body: unknown, status: number) =>
     });
 
 Deno.serve(async (req) => {
-    // Validação de env vars — falha imediatamente se não configurado
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const escavadorToken = Deno.env.get("ESCAVADOR_API_TOKEN");
@@ -106,7 +81,7 @@ Deno.serve(async (req) => {
         return json({ error: "ESCAVADOR_API_TOKEN não configurado" }, 500);
     }
 
-    // Verificação opcional: se CRON_SECRET estiver definido, exige no header
+    // Verificação opcional de CRON_SECRET
     const cronSecret = Deno.env.get("CRON_SECRET");
     if (cronSecret) {
         const authHeader = req.headers.get("Authorization") ?? "";
@@ -117,176 +92,117 @@ Deno.serve(async (req) => {
         }
     }
 
-    // Cliente criado dentro do handler — garante env vars válidos no momento do uso
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-
     const runId = crypto.randomUUID();
-    logStructured("info", "process-monitor-cron iniciado", { run_id: runId });
     const now = new Date().toISOString();
+    const cutoffTime = new Date(Date.now() - PENDING_TIMEOUT_HOURS * 60 * 60 * 1000).toISOString();
 
-    const { data: processos } = await supabase
+    logStructured("info", "Health-check semanal iniciado", { run_id: runId });
+
+    // 1. Buscar processos com status_atualizacao = 'PENDING' há mais de 48h
+    const { data: pendingProcessos } = await supabase
         .from("processos")
-        .select("id, number, last_checked_at, owner_id, last_movement")
+        .select("id, number, owner_id, status_atualizacao, ultima_verificacao")
+        .eq("status_atualizacao", "PENDING")
+        .lt("ultima_verificacao", cutoffTime)
         .not("number", "is", null);
 
-    if (!processos?.length) {
-        logStructured("info", "Nenhum processo para monitorar", { run_id: runId, total_processos: 0 });
-        return json({ ok: true, message: "Nenhum processo para monitorar", processed: 0 }, 200);
+    // 2. Buscar processos com status_atualizacao = 'ERROR' (re-tentar)
+    const { data: errorProcessos } = await supabase
+        .from("processos")
+        .select("id, number, owner_id, status_atualizacao, ultima_verificacao")
+        .eq("status_atualizacao", "ERROR")
+        .not("number", "is", null);
+
+    // 3. Buscar processos com monitoramento_ativo=true mas status_atualizacao='NONE'
+    // (processos que deveriam estar sendo monitorados mas nunca receberam callback)
+    const { data: noneProcessos } = await supabase
+        .from("processos")
+        .select("id, number, owner_id, status_atualizacao, ultima_verificacao")
+        .eq("monitoramento_ativo", true)
+        .eq("status_atualizacao", "NONE")
+        .not("number", "is", null);
+
+    const toResolve = [
+        ...(pendingProcessos ?? []),
+        ...(errorProcessos ?? []),
+        ...(noneProcessos ?? []),
+    ];
+
+    logStructured("info", "Processos para re-solicitar atualização", {
+        run_id: runId,
+        pending_timeout: pendingProcessos?.length ?? 0,
+        errors: errorProcessos?.length ?? 0,
+        none_with_monitoring: noneProcessos?.length ?? 0,
+        total: toResolve.length,
+    });
+
+    if (toResolve.length === 0) {
+        logStructured("info", "Nenhum processo precisa de re-solicitação", { run_id: runId });
+        return json({ ok: true, message: "Nenhum processo com status inconsistente", resolved: 0 }, 200);
     }
 
-    const toCheck = processos.filter((p: { last_checked_at: string | null }) => shouldCheckProcess(p.last_checked_at));
-    logStructured("info", "Processos elegíveis para consulta", {
-        run_id: runId,
-        total: processos.length,
-        to_check: toCheck.length,
-    });
-    let consultasOk = 0;
-    let atualizacoesEncontradas = 0;
-    const errors: { process_number: string; error: string }[] = [];
+    let resolved = 0;
+    const errors: { number: string; error: string }[] = [];
 
-    for (const proc of toCheck) {
-        const { data, error } = await fetchMovimentacoes(proc.number, escavadorToken);
-
-        await supabase.from("process_monitor_logs").insert({
-            process_id: proc.id,
-            process_number: proc.number,
-            log_type: error ? "erro_api" : "consulta_realizada",
-            message: error || "Consulta realizada",
-            details: error ? { error } : { items_count: data?.items?.length ?? 0 },
-            owner_id: proc.owner_id,
-        });
+    for (const proc of toResolve) {
+        const { updateId, error } = await solicitarAtualizacao(proc.number, escavadorToken);
 
         if (error) {
-            logStructured("error", "Erro API Escavador", {
+            logStructured("warn", "Erro ao re-solicitar atualização", {
                 run_id: runId,
                 process_id: proc.id,
-                process_number: proc.number,
+                number: proc.number,
                 error,
             });
-            errors.push({ process_number: proc.number, error });
-            continue;
-        }
-        logStructured("info", "Consulta realizada", {
-            run_id: runId,
-            process_id: proc.id,
-            process_number: proc.number,
-            items_count: data?.items?.length ?? 0,
-        });
-        consultasOk += 1;
-
-        const items = data?.items ?? [];
-        const { data: lastMovements } = await supabase
-            .from("process_movements")
-            .select("movement_date, external_id")
-            .eq("process_id", proc.id)
-            .order("movement_date", { ascending: false })
-            .limit(1);
-        const lastSaved = lastMovements?.[0];
-        const lastDate = lastSaved?.movement_date ?? null;
-        const lastExternalId = lastSaved?.external_id ?? 0;
-
-        const newRelevant: { id: number; data: string; tipo: string; conteudo: string }[] = [];
-        for (const item of items) {
-            const itemDate = item.data;
-            const isNewer = !lastDate || itemDate > lastDate || (itemDate === lastDate && item.id > lastExternalId);
-            if (!isNewer) break;
-            if (isRelevantMovement(item.conteudo)) newRelevant.push(item);
-        }
-
-        if (newRelevant.length > 0) {
-            logStructured("info", "Atualização encontrada", {
-                run_id: runId,
-                process_id: proc.id,
-                process_number: proc.number,
-                count: newRelevant.length,
-            });
-            atualizacoesEncontradas += 1;
-            for (const mov of newRelevant) {
-                await supabase.from("process_movements").insert({
-                    process_id: proc.id,
-                    process_number: proc.number,
-                    movement_date: mov.data,
-                    movement_type: detectMovementType(mov.conteudo),
-                    full_text: mov.conteudo,
-                    is_relevant: true,
-                    external_id: mov.id,
-                    owner_id: proc.owner_id,
-                });
-            }
-            const latest = newRelevant[0];
-            await supabase
-                .from("processos")
-                .update({
-                    last_movement: latest.conteudo.slice(0, 500),
-                    last_checked_at: now,
-                    updated_at: now,
-                })
-                .eq("id", proc.id);
-
-            if (proc.owner_id) {
-                await supabase.from("inbox_items").insert({
-                    tipo: "Andamento",
-                    titulo: `Nova movimentação relevante: ${proc.number}`,
-                    descricao: `${newRelevant.length} nova(s) movimentação(ões): ${latest.conteudo.slice(0, 120)}${latest.conteudo.length > 120 ? "…" : ""}`,
-                    referencia_id: proc.id,
-                    lido: false,
-                    prioridade: "Alta",
-                    owner_id: proc.owner_id,
-                });
-            }
+            errors.push({ number: proc.number, error });
 
             await supabase.from("process_monitor_logs").insert({
                 process_id: proc.id,
                 process_number: proc.number,
-                log_type: "atualizacao_encontrada",
-                message: `${newRelevant.length} nova(s) movimentação(ões) relevante(s)`,
-                details: { count: newRelevant.length, types: newRelevant.map((m) => detectMovementType(m.conteudo)) },
+                log_type: "erro_api",
+                message: `Health-check: erro ao re-solicitar — ${error}`,
+                details: { source: "health-check", run_id: runId, error },
                 owner_id: proc.owner_id,
             });
-        } else {
-            await supabase
-                .from("processos")
-                .update({
-                    last_checked_at: now,
-                    updated_at: now,
-                })
-                .eq("id", proc.id);
+            continue;
         }
 
-        if (proc.owner_id) {
-            await supabase.from("inbox_items").insert({
-                tipo: "Sistema",
-                titulo: `Consulta processo ${proc.number}`,
-                descricao:
-                    newRelevant.length > 0
-                        ? `${newRelevant.length} nova(s) movimentação(ões) relevante(s) encontrada(s).`
-                        : "Consulta realizada. Nenhuma movimentação nova relevante.",
-                referencia_id: proc.id,
-                lido: false,
-                prioridade: newRelevant.length > 0 ? "Alta" : "Normal",
-                owner_id: proc.owner_id,
-            });
-        }
+        // Atualizar status
+        await supabase.from("processos").update({
+            escavador_update_id: updateId,
+            status_atualizacao: "PENDING",
+            ultima_verificacao: now,
+            updated_at: now,
+        }).eq("id", proc.id);
+
+        await supabase.from("process_monitor_logs").insert({
+            process_id: proc.id,
+            process_number: proc.number,
+            log_type: "consulta_realizada",
+            message: "Health-check: atualização re-solicitada com callback",
+            details: { source: "health-check", run_id: runId, update_id: updateId },
+            owner_id: proc.owner_id,
+        });
+
+        resolved++;
+
+        // Rate limit: 1 req/segundo para não sobrecarregar API
+        await new Promise((r) => setTimeout(r, 1000));
     }
 
-    logStructured("info", "process-monitor-cron concluído", {
+    logStructured("info", "Health-check semanal concluído", {
         run_id: runId,
-        processed: toCheck.length,
-        consultas_ok: consultasOk,
-        atualizacoes_encontradas: atualizacoesEncontradas,
+        total: toResolve.length,
+        resolved,
         errors_count: errors.length,
     });
-    if (errors.length > 0) {
-        logStructured("warn", "Erros de API por processo", { run_id: runId, errors });
-    }
-    return json(
-        {
-            ok: true,
-            processed: toCheck.length,
-            consultas_ok: consultasOk,
-            atualizacoes_encontradas: atualizacoesEncontradas,
-            errors: errors.length ? errors : undefined,
-        },
-        200,
-    );
+
+    return json({
+        ok: true,
+        run_id: runId,
+        total_checked: toResolve.length,
+        resolved,
+        errors: errors.length > 0 ? errors : undefined,
+    }, 200);
 });

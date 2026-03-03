@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
@@ -11,6 +10,7 @@ import {
     Download,
     XCircle,
     Loader2,
+    Webhook,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProcessosMonitoring } from "@/hooks/useProcessosMonitoring";
 
-/**
- * Formata uma data ISO para formato pt-BR legivel.
- */
 const formatDateBR = (dateStr: string | null) => {
     if (!dateStr) return "Nunca";
     return new Date(dateStr).toLocaleDateString("pt-BR", {
@@ -33,50 +30,55 @@ const formatDateBR = (dateStr: string | null) => {
     });
 };
 
-/**
- * Dashboard de Processos Escavador.
- *
- * Exibe:
- * - Resumo de processos importados via Escavador
- * - Status da ultima sincronizacao
- * - Botao para verificacao manual de movimentacoes
- * - Lista de processos com ultima movimentacao
- *
- * Rota: /processos/dashboard-escavador
- */
+const statusBadge = (status: string) => {
+    switch (status) {
+        case "SUCCESS":
+            return (
+                <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-300">
+                    Atualizado
+                </Badge>
+            );
+        case "PENDING":
+            return (
+                <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-700 dark:border-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
+                    Pendente
+                </Badge>
+            );
+        case "ERROR":
+            return (
+                <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-300">
+                    Erro
+                </Badge>
+            );
+        case "NOT_FOUND":
+            return (
+                <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400">
+                    Não encontrado
+                </Badge>
+            );
+        default:
+            return (
+                <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400">
+                    Aguardando
+                </Badge>
+            );
+    }
+};
+
 const DashboardProcessos = () => {
-    const { processos, loading, error, lastChecked, atualizacoes, fetchProcessos, verificarAgora, marcarComoInativo } =
+    const { processos, loading, error, lastChecked, fetchProcessos, marcarComoInativo } =
         useProcessosMonitoring();
 
-    const [verificando, setVerificando] = useState(false);
-
-    // Contadores derivados
     const totalProcessos = processos.length;
-    const processosAtivos = processos.filter((p) => p.ativo).length;
-    const processosInativos = totalProcessos - processosAtivos;
+    const monitorados = processos.filter((p) => p.monitoramento_ativo).length;
+    const pendentes = processos.filter((p) => p.status_atualizacao === "PENDING").length;
+    const comErro = processos.filter((p) => p.status_atualizacao === "ERROR").length;
 
-    /**
-     * Dispara verificacao manual de movimentacoes via Edge Function.
-     */
-    const handleVerificarAgora = async () => {
-        setVerificando(true);
-        try {
-            await verificarAgora();
-        } catch {
-            // Erro ja tratado no hook via toast
-        } finally {
-            setVerificando(false);
-        }
-    };
-
-    /**
-     * Recarrega a lista de processos do banco de dados.
-     */
     const handleRefresh = async () => {
         try {
             await fetchProcessos();
         } catch {
-            // Erro ja tratado no hook via toast
+            // Erro tratado no hook via toast
         }
     };
 
@@ -93,7 +95,7 @@ const DashboardProcessos = () => {
                     <div>
                         <h1 className="font-display text-3xl font-bold text-foreground">Dashboard Escavador</h1>
                         <p className="mt-1 text-muted-foreground">
-                            Monitore processos importados e verifique movimentacoes.
+                            Monitoramento de processos via callback automático.
                         </p>
                     </div>
                 </div>
@@ -104,23 +106,14 @@ const DashboardProcessos = () => {
                             Importar Novos
                         </Button>
                     </Link>
-                    <Button onClick={handleVerificarAgora} disabled={verificando || loading}>
-                        {verificando ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Verificando...
-                            </>
-                        ) : (
-                            <>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Verificar Agora
-                            </>
-                        )}
+                    <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Atualizar Lista
                     </Button>
                 </div>
             </div>
 
-            {/* Cartoes de resumo */}
+            {/* Cartões de resumo */}
             <div className="grid gap-4 sm:grid-cols-4">
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
@@ -137,52 +130,50 @@ const DashboardProcessos = () => {
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 text-green-500">
-                            <CheckCircle2 className="h-5 w-5" />
+                            <Webhook className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-foreground">{processosAtivos}</p>
-                            <p className="text-xs text-muted-foreground">Ativos (Monitorados)</p>
+                            <p className="text-2xl font-bold text-foreground">{monitorados}</p>
+                            <p className="text-xs text-muted-foreground">Com Callback Ativo</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10 text-orange-500">
-                            <AlertTriangle className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">{atualizacoes}</p>
-                            <p className="text-xs text-muted-foreground">Novas Movimentacoes</p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-500/10 text-gray-500">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-500">
                             <Clock className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-foreground">{formatDateBR(lastChecked)}</p>
-                            <p className="text-xs text-muted-foreground">Ultima Sincronizacao</p>
+                            <p className="text-2xl font-bold text-foreground">{pendentes}</p>
+                            <p className="text-xs text-muted-foreground">Aguardando Callback</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="flex items-center gap-4 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 text-red-500">
+                            <AlertTriangle className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-foreground">{comErro}</p>
+                            <p className="text-xs text-muted-foreground">Com Erro</p>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Status de sincronizacao */}
+            {/* Status de sincronização */}
             {lastChecked && (
                 <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
                     <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <AlertDescription className="text-blue-800 dark:text-blue-200">
-                        Ultima verificacao automatica: {formatDateBR(lastChecked)}. O monitoramento automatico roda
-                        1x/dia as 09h00 (UTC).
+                        Dados carregados em: {formatDateBR(lastChecked)}. Atualizações são recebidas automaticamente via callback do Escavador.
                     </AlertDescription>
                 </Alert>
             )}
 
-            {/* Mensagem de erro */}
             {error && (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
@@ -190,14 +181,10 @@ const DashboardProcessos = () => {
                 </Alert>
             )}
 
-            {/* Tabela de processos importados */}
+            {/* Tabela de processos */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <CardTitle className="font-display text-xl">Processos Monitorados</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={handleRefresh}>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Atualizar Lista
-                    </Button>
                 </CardHeader>
                 <CardContent>
                     {loading ? (
@@ -210,7 +197,7 @@ const DashboardProcessos = () => {
                             <Scale className="h-12 w-12 text-muted-foreground/50" />
                             <p className="mt-4 text-lg font-medium text-foreground">Nenhum processo importado ainda</p>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Use o botao &quot;Importar Novos&quot; para buscar processos via Escavador.
+                                Use o botão &quot;Importar Novos&quot; para buscar processos via Escavador.
                             </p>
                             <Link to="/processos/importar">
                                 <Button className="mt-4">
@@ -223,48 +210,43 @@ const DashboardProcessos = () => {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Numero do Processo</TableHead>
+                                    <TableHead>Número do Processo</TableHead>
                                     <TableHead>Tribunal</TableHead>
-                                    <TableHead>Ultima Movimentacao</TableHead>
-                                    <TableHead>Data Movimentacao</TableHead>
-                                    <TableHead>Ultima Verificacao</TableHead>
-                                    <TableHead>Status</TableHead>
+                                    <TableHead>Última Movimentação</TableHead>
+                                    <TableHead>Última Verificação</TableHead>
+                                    <TableHead>Status Callback</TableHead>
+                                    <TableHead>Monitoramento</TableHead>
                                     <TableHead className="w-10" />
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {processos.map((processo) => (
                                     <TableRow key={processo.id}>
-                                        <TableCell className="font-mono text-xs">{processo.numero_processo}</TableCell>
-                                        <TableCell>{processo.tribunal}</TableCell>
+                                        <TableCell className="font-mono text-xs">{processo.number}</TableCell>
+                                        <TableCell>{processo.court}</TableCell>
                                         <TableCell className="max-w-[300px] truncate text-sm">
-                                            {processo.ultima_movimentacao || "Sem movimentacao"}
-                                        </TableCell>
-                                        <TableCell className="text-sm">
-                                            {formatDateBR(processo.ultima_movimentacao_data)}
+                                            {processo.last_movement || "Sem movimentação"}
                                         </TableCell>
                                         <TableCell className="text-sm">
                                             {formatDateBR(processo.last_checked_at)}
                                         </TableCell>
                                         <TableCell>
-                                            {processo.ativo ? (
-                                                <Badge
-                                                    variant="outline"
-                                                    className="border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-300"
-                                                >
+                                            {statusBadge(processo.status_atualizacao)}
+                                        </TableCell>
+                                        <TableCell>
+                                            {processo.monitoramento_ativo ? (
+                                                <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-300">
+                                                    <CheckCircle2 className="mr-1 h-3 w-3" />
                                                     Ativo
                                                 </Badge>
                                             ) : (
-                                                <Badge
-                                                    variant="outline"
-                                                    className="border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400"
-                                                >
+                                                <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400">
                                                     Inativo
                                                 </Badge>
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            {processo.ativo && (
+                                            {processo.monitoramento_ativo && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -284,23 +266,23 @@ const DashboardProcessos = () => {
                 </CardContent>
             </Card>
 
-            {/* Informacoes sobre o monitoramento automatico */}
+            {/* Informações sobre o monitoramento */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Sobre o Monitoramento Automatico</CardTitle>
+                    <CardTitle className="text-base">Sobre o Monitoramento Automático</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
                     <p>
-                        O sistema verifica automaticamente 1x por dia (as 09h00 UTC) se ha novas movimentacoes nos
-                        processos ativos.
+                        O sistema usa callbacks automáticos da API Escavador V2. Ao importar um processo,
+                        uma solicitação de atualização é enviada com callback habilitado.
                     </p>
                     <p>
-                        Quando uma nova movimentacao e detectada, o banco de dados e atualizado e uma notificacao e
-                        enviada.
+                        Quando o Escavador finaliza a análise do processo, envia um callback automaticamente
+                        com as novas movimentações. Isso elimina a necessidade de polling diário.
                     </p>
                     <p>
-                        Voce tambem pode clicar em &quot;Verificar Agora&quot; para disparar uma verificacao manual a
-                        qualquer momento.
+                        Um health-check semanal verifica processos com status inconsistente e re-solicita
+                        atualização quando necessário.
                     </p>
                 </CardContent>
             </Card>

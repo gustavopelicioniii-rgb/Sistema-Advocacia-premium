@@ -48,6 +48,11 @@ export interface Database {
           value: number;
           docs_count: number;
           owner_id: string | null;
+          escavador_update_id: number | null;
+          status_atualizacao: 'NONE' | 'PENDING' | 'SUCCESS' | 'ERROR' | 'NOT_FOUND';
+          ultima_movimentacao_hash: string | null;
+          monitoramento_ativo: boolean;
+          ultima_verificacao: string | null;
         };
         Insert: Omit<Database['public']['Tables']['processos']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['processos']['Insert']>;
@@ -74,13 +79,30 @@ export interface Database {
           created_at: string;
           process_id: string | null;
           process_number: string | null;
-          log_type: 'consulta_realizada' | 'atualizacao_encontrada' | 'erro_api';
+          log_type: 'consulta_realizada' | 'atualizacao_encontrada' | 'erro_api' | 'callback_recebido';
           message: string | null;
           details: Record<string, unknown> | null;
           owner_id: string | null;
         };
         Insert: Omit<Database['public']['Tables']['process_monitor_logs']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['process_monitor_logs']['Insert']>;
+      };
+      escavador_callback_logs: {
+        Row: {
+          id: string;
+          created_at: string;
+          callback_id: number | null;
+          callback_uuid: string | null;
+          evento: string | null;
+          status: string | null;
+          numero_cnj: string | null;
+          payload: Record<string, unknown> | null;
+          processing_result: string | null;
+          error_message: string | null;
+          processed_at: string | null;
+        };
+        Insert: Omit<Database['public']['Tables']['escavador_callback_logs']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['escavador_callback_logs']['Insert']>;
       };
       deadlines: {
         Row: {

@@ -16,6 +16,7 @@ import {
     UsersRound,
     MessageCircle,
     Calculator,
+    Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyPermissions } from "@/hooks/useTeam";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
+import { useInbox } from "@/hooks/useInbox";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useMemo } from "react";
 import { format } from "date-fns";
@@ -43,6 +45,7 @@ const mainNavItems: Array<{
     { name: "CRM", href: "/crm", icon: Users, module: "crm" },
     { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle, iconSrc: "/icons/whatsapp.svg" },
     { name: "Financeiro", href: "/financeiro", icon: DollarSign, module: "financeiro" },
+    { name: "Inbox", href: "/inbox", icon: Inbox, useCount: true },
 ];
 
 const secondaryNav: Array<{
@@ -61,10 +64,11 @@ const secondaryNav: Array<{
     { name: "Configurações", href: "/configuracoes", icon: Settings, module: "configuracoes" },
 ];
 
-function getMainNav(todayCount: number) {
+function getMainNav(todayCount: number, inboxUnreadCount: number) {
     return mainNavItems.map((item) => {
         if ("useCount" in item && item.useCount) {
             const { useCount, ...rest } = item;
+            if (item.name === "Inbox") return { ...rest, count: inboxUnreadCount };
             return { ...rest, count: todayCount };
         }
         return item;
@@ -139,6 +143,7 @@ const AppSidebar = () => {
     const { data: profile } = useProfile();
     const { isAdmin, byModule } = useMyPermissions();
     const { events: gcalEvents } = useGoogleCalendar();
+    const { data: inboxItems } = useInbox();
     const todayCount = useMemo(() => {
         const todayStr = format(new Date(), "yyyy-MM-dd");
         return (gcalEvents ?? []).filter((e) => {
@@ -148,15 +153,16 @@ const AppSidebar = () => {
             return format(d, "yyyy-MM-dd") === todayStr;
         }).length;
     }, [gcalEvents]);
+    const inboxUnreadCount = useMemo(() => (inboxItems ?? []).filter((i) => !i.lido).length, [inboxItems]);
 
     const mainNav = useMemo(() => {
-        const list = getMainNav(todayCount);
+        const list = getMainNav(todayCount, inboxUnreadCount);
         return list.filter((item) => {
             if ("adminOnly" in item && item.adminOnly && !isAdmin) return false;
             if ("module" in item && item.module && !byModule(item.module).can_view) return false;
             return true;
         });
-    }, [todayCount, isAdmin, byModule]);
+    }, [todayCount, inboxUnreadCount, isAdmin, byModule]);
 
     const secondaryNavFiltered = useMemo(() => {
         return secondaryNav.filter((item) => {

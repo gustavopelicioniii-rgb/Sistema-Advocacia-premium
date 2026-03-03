@@ -3,12 +3,12 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Processo {
     id: string;
-    numero_processo: string;
-    tribunal: string;
-    ultima_movimentacao: string;
-    ultima_movimentacao_data: string;
-    last_checked_at: string;
-    ativo: boolean;
+    number: string;
+    court: string;
+    last_movement: string;
+    last_checked_at: string | null;
+    status_atualizacao: 'NONE' | 'PENDING' | 'SUCCESS' | 'ERROR' | 'NOT_FOUND';
+    monitoramento_ativo: boolean;
 }
 
 interface MonitoringState {
@@ -16,7 +16,6 @@ interface MonitoringState {
     loading: boolean;
     error: string | null;
     lastChecked: string | null;
-    atualizacoes: number;
 }
 
 export function useProcessosMonitoring() {
@@ -25,7 +24,6 @@ export function useProcessosMonitoring() {
         loading: false,
         error: null,
         lastChecked: null,
-        atualizacoes: 0,
     });
 
     const { toast } = useToast();
@@ -41,11 +39,11 @@ export function useProcessosMonitoring() {
 
         try {
             if (!supabaseUrl || !anonKey) {
-                throw new Error("Supabase URL ou Anon Key nao configurada");
+                throw new Error("Supabase URL ou Anon Key não configurada");
             }
 
             const response = await fetch(
-                `${supabaseUrl}/rest/v1/processos?ativo=eq.true&select=id,numero_processo,tribunal,ultima_movimentacao,ultima_movimentacao_data,last_checked_at,ativo&order=created_at.desc`,
+                `${supabaseUrl}/rest/v1/processos?select=id,number,court,last_movement,last_checked_at,status_atualizacao,monitoramento_ativo&order=created_at.desc`,
                 {
                     method: "GET",
                     headers: {
@@ -83,73 +81,11 @@ export function useProcessosMonitoring() {
         }
     }, [supabaseUrl, anonKey]);
 
-    const verificarAgora = useCallback(async () => {
-        setState((prev) => ({
-            ...prev,
-            loading: true,
-            error: null,
-        }));
-
-        try {
-            if (!supabaseUrl || !anonKey) {
-                throw new Error("Supabase URL ou Anon Key nao configurada");
-            }
-
-            const response = await fetch(`${supabaseUrl}/functions/v1/verificar-movimentacoes`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${anonKey}`,
-                },
-                body: JSON.stringify({}),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Erro ao verificar movimentacoes: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            setState((prev) => ({
-                ...prev,
-                loading: false,
-                atualizacoes: data.atualizacoes || 0,
-                lastChecked: new Date().toISOString(),
-            }));
-
-            toast({
-                title: "Verificacao concluida",
-                description: `${data.processos_verificados || 0} processos verificados, ${data.atualizacoes || 0} atualizacao(oes)`,
-                variant: "default",
-            });
-
-            await fetchProcessos();
-
-            return data;
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
-
-            setState((prev) => ({
-                ...prev,
-                loading: false,
-                error: errorMessage,
-            }));
-
-            toast({
-                title: "Erro na verificacao",
-                description: errorMessage,
-                variant: "destructive",
-            });
-
-            throw err;
-        }
-    }, [supabaseUrl, anonKey, toast, fetchProcessos]);
-
     const marcarComoInativo = useCallback(
         async (processoId: string) => {
             try {
                 if (!supabaseUrl || !anonKey) {
-                    throw new Error("Supabase nao configurado");
+                    throw new Error("Supabase não configurado");
                 }
 
                 const response = await fetch(
@@ -161,7 +97,7 @@ export function useProcessosMonitoring() {
                             "apikey": anonKey,
                             "Authorization": `Bearer ${anonKey}`,
                         },
-                        body: JSON.stringify({ ativo: false }),
+                        body: JSON.stringify({ monitoramento_ativo: false }),
                     },
                 );
 
@@ -171,19 +107,21 @@ export function useProcessosMonitoring() {
 
                 setState((prev) => ({
                     ...prev,
-                    processos: prev.processos.filter((p) => p.id !== processoId),
+                    processos: prev.processos.map((p) =>
+                        p.id === processoId ? { ...p, monitoramento_ativo: false } : p,
+                    ),
                 }));
 
                 toast({
-                    title: "Processo desativado",
-                    description: "O processo nao sera mais monitorado",
+                    title: "Monitoramento desativado",
+                    description: "O processo não receberá mais atualizações automáticas",
                     variant: "default",
                 });
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
 
                 toast({
-                    title: "Erro ao desativar processo",
+                    title: "Erro ao desativar monitoramento",
                     description: errorMessage,
                     variant: "destructive",
                 });
@@ -199,7 +137,6 @@ export function useProcessosMonitoring() {
     return {
         ...state,
         fetchProcessos,
-        verificarAgora,
         marcarComoInativo,
     };
 }

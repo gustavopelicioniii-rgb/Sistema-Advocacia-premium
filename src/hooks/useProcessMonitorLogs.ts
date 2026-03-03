@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-export type ProcessMonitorLogType = 'consulta_realizada' | 'atualizacao_encontrada' | 'erro_api';
+export type ProcessMonitorLogType = 'consulta_realizada' | 'atualizacao_encontrada' | 'erro_api' | 'callback_recebido';
 
 export interface ProcessMonitorLog {
     id: string;

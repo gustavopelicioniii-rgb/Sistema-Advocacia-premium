@@ -1,3 +1,9 @@
+/**
+ * @deprecated LEGACY — Substituído pela arquitetura event-driven (escavador-callback).
+ * Esta função NÃO deve mais ser deployada nem agendada.
+ * Mantida apenas como referência histórica.
+ * Use: escavador-callback (webhook receiver) + process-monitor-cron (health-check semanal)
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
 
