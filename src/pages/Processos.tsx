@@ -15,6 +15,8 @@ import {
     Loader2,
     Upload,
     Eye,
+    Download,
+    BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,6 +126,14 @@ const Processos = () => {
                         <span className="text-sm text-muted-foreground hidden sm:inline">
                             Processos: {currentCount}/{limit}
                         </span>
+                        <Button variant="outline" onClick={() => navigate("/processos/dashboard-escavador")}>
+                            <BarChart3 className="mr-2 h-4 w-4" />
+                            Dashboard Escavador
+                        </Button>
+                        <Button variant="outline" onClick={() => navigate("/processos/importar")}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Importar Escavador
+                        </Button>
                         <Button variant="outline" onClick={() => setImportOpen(true)}>
                             <Upload className="mr-2 h-4 w-4" />
                             Importar CSV
