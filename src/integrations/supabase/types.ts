@@ -143,6 +143,7 @@ export interface Database {
           payment_method: 'a_vista' | 'entrada_parcelas' | 'cartao_credito';
           entrada_value: number | null;
           installments: number | null;
+          installments_status: { number: number; paid: boolean; paid_date: string | null }[] | null;
           owner_id: string | null;
         };
         Insert: Omit<Database['public']['Tables']['fees']['Row'], 'id' | 'created_at' | 'updated_at'>;

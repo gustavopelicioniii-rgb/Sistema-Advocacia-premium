@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCreateFee, useUpdateFee, type Fee, type FeeInsert, type PaymentMethod } from "@/hooks/useFees";
+import { useCreateFee, useUpdateFee, type Fee, type FeeInsert, type PaymentMethod, type InstallmentStatus } from "@/hooks/useFees";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -81,11 +81,27 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
             return;
         }
 
+        // Auto-generate installments_status when installments are set
+        let installments_status: InstallmentStatus[] | null = null;
+        if (
+            (form.payment_method === "entrada_parcelas" || form.payment_method === "cartao_credito") &&
+            form.installments &&
+            form.installments > 0
+        ) {
+            // Preserve existing statuses when editing, generate new ones otherwise
+            const existing = fee?.installments_status ?? [];
+            installments_status = Array.from({ length: form.installments }, (_, i) => {
+                const prev = existing.find((s) => s.number === i + 1);
+                return prev ?? { number: i + 1, paid: false, paid_date: null };
+            });
+        }
+
         const payload = {
             ...form,
             payment_method: form.payment_method,
             entrada_value: form.entrada_value ?? null,
             installments: form.installments ?? null,
+            installments_status,
         };
         if (isEditing && fee) {
             await updateMutation.mutateAsync({ id: fee.id, ...payload, owner_id: fee.owner_id });

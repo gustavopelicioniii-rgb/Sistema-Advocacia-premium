@@ -6,6 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export type PaymentMethod = "a_vista" | "entrada_parcelas" | "cartao_credito";
 
+export interface InstallmentStatus {
+    number: number;
+    paid: boolean;
+    paid_date: string | null;
+}
+
 export interface Fee {
     id: string;
     created_at: string;
@@ -20,6 +26,7 @@ export interface Fee {
     payment_method?: PaymentMethod;
     entrada_value?: number | null;
     installments?: number | null;
+    installments_status?: InstallmentStatus[] | null;
     owner_id: string | null;
 }
 
@@ -107,6 +114,30 @@ export function useUpdateFee() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["fees"] });
             toast({ title: "Honorário atualizado!" });
+        },
+        onError: (e: Error) => {
+            toast({ title: "Erro", description: e.message, variant: "destructive" });
+        },
+    });
+}
+
+export function useUpdateInstallmentStatus() {
+    const qc = useQueryClient();
+    const { toast } = useToast();
+    return useMutation({
+        mutationFn: async ({ feeId, installments_status }: { feeId: string; installments_status: InstallmentStatus[] }) => {
+            const allPaid = installments_status.length > 0 && installments_status.every((i) => i.paid);
+            const anyPaid = installments_status.some((i) => i.paid);
+            const newStatus = allPaid ? "Pago" : anyPaid ? "Pendente" : "Pendente";
+            const { error } = await supabase
+                .from("fees")
+                .update({ installments_status, status: newStatus } as Record<string, unknown>)
+                .eq("id", feeId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["fees"] });
+            toast({ title: "Parcela atualizada!" });
         },
         onError: (e: Error) => {
             toast({ title: "Erro", description: e.message, variant: "destructive" });

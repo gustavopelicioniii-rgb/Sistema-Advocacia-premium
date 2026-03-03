@@ -75,7 +75,7 @@ export default function ProcessoModal({ open, onOpenChange, processo }: Processo
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!form.number || !form.client || !form.court) return;
+        if (!form.client || !form.court) return;
 
         if (isEditing && processo) {
             await updateMutation.mutateAsync({ id: processo.id, ...form });
@@ -117,13 +117,12 @@ export default function ProcessoModal({ open, onOpenChange, processo }: Processo
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="number">Número do Processo *</Label>
+                            <Label htmlFor="number">Numero do Processo</Label>
                             <Input
                                 id="number"
-                                placeholder="0012345-67.2024.8.26.0100"
+                                placeholder="0012345-67.2024.8.26.0100 (opcional)"
                                 value={form.number}
                                 onChange={(e) => set("number", e.target.value)}
-                                required
                             />
                         </div>
                         <div className="space-y-2">
