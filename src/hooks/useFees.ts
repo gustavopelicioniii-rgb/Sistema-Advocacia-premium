@@ -7,9 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 export type PaymentMethod = "a_vista" | "entrada_parcelas" | "cartao_credito";
 
 export interface InstallmentStatus {
-    number: number;
+    number: number;    // 0 = entrada, 1+ = parcelas
     paid: boolean;
-    paid_date: string | null;
+    due_date: string | null;   // vencimento
+    paid_date: string | null;  // data de pagamento
+    value?: number;            // valor da parcela/entrada
 }
 
 export interface Fee {
