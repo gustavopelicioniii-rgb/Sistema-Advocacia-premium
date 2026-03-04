@@ -30,43 +30,43 @@ const formatDateBR = (dateStr: string | null) => {
     });
 };
 
-const statusBadge = (status: string) => {
+const getStatusInfo = (status: string) => {
     switch (status) {
         case "SUCCESS":
-            return (
-                <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-300">
-                    Atualizado
-                </Badge>
-            );
+            return {
+                label: "Atualizado",
+                className:
+                    "border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-300",
+            };
         case "PENDING":
-            return (
-                <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-700 dark:border-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
-                    Pendente
-                </Badge>
-            );
+            return {
+                label: "Pendente",
+                className:
+                    "border-yellow-300 bg-yellow-50 text-yellow-700 dark:border-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300",
+            };
         case "ERROR":
-            return (
-                <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-300">
-                    Erro
-                </Badge>
-            );
+            return {
+                label: "Erro",
+                className:
+                    "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-300",
+            };
         case "NOT_FOUND":
-            return (
-                <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400">
-                    Não encontrado
-                </Badge>
-            );
+            return {
+                label: "Não encontrado",
+                className:
+                    "border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400",
+            };
         default:
-            return (
-                <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400">
-                    Aguardando
-                </Badge>
-            );
+            return {
+                label: "Aguardando",
+                className:
+                    "border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400",
+            };
     }
 };
 
 const DashboardProcessos = () => {
-    const { processos, loading, error, lastChecked, fetchProcessos, marcarComoInativo } =
+    const { processos, loading, error, lastChecked, fetchProcessos, marcarComoInativo, marcarComoAtivo } =
         useProcessosMonitoring();
 
     const totalProcessos = processos.length;
@@ -100,6 +100,37 @@ const DashboardProcessos = () => {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
+                        onClick={async () => {
+                            try {
+                                const response = await fetch(
+                                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/migrar-monitoramento-callback`,
+                                    {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                                            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                                        },
+                                        body: JSON.stringify({}),
+                                    },
+                                );
+                                if (response.ok) {
+                                    alert("Sincronização iniciada para todos os processos!");
+                                    handleRefresh();
+                                } else {
+                                    alert("Erro ao iniciar sincronização.");
+                                }
+                            } catch (e) {
+                                alert("Erro de conexão.");
+                            }
+                        }}
+                    >
+                        <Webhook className="mr-2 h-4 w-4" />
+                        Sincronizar Todos
+                    </Button>
                     <Link to="/processos/importar">
                         <Button variant="outline">
                             <Download className="mr-2 h-4 w-4" />
@@ -169,7 +200,8 @@ const DashboardProcessos = () => {
                 <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
                     <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <AlertDescription className="text-blue-800 dark:text-blue-200">
-                        Dados carregados em: {formatDateBR(lastChecked)}. Atualizações são recebidas automaticamente via callback do Escavador.
+                        Dados carregados em: {formatDateBR(lastChecked)}. Atualizações são recebidas automaticamente via
+                        callback do Escavador.
                     </AlertDescription>
                 </Alert>
             )}
@@ -231,23 +263,34 @@ const DashboardProcessos = () => {
                                             {formatDateBR(processo.last_checked_at)}
                                         </TableCell>
                                         <TableCell>
-                                            {statusBadge(processo.status_atualizacao)}
+                                            <Badge
+                                                variant="outline"
+                                                className={getStatusInfo(processo.status_atualizacao).className}
+                                                translate="no"
+                                            >
+                                                {getStatusInfo(processo.status_atualizacao).label}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant="outline"
+                                                className={
+                                                    processo.monitoramento_ativo
+                                                        ? "border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-300"
+                                                        : "border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400"
+                                                }
+                                                translate="no"
+                                            >
+                                                {processo.monitoramento_ativo && (
+                                                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                                                )}
+                                                {processo.monitoramento_ativo ? "Ativo" : "Inativo"}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell>
                                             {processo.monitoramento_ativo ? (
-                                                <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-300">
-                                                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                                                    Ativo
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400">
-                                                    Inativo
-                                                </Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {processo.monitoramento_ativo && (
                                                 <Button
+                                                    key={`btn-off-${processo.id}`}
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
@@ -255,6 +298,17 @@ const DashboardProcessos = () => {
                                                     onClick={() => marcarComoInativo(processo.id)}
                                                 >
                                                     <XCircle className="h-4 w-4" />
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    key={`btn-on-${processo.id}`}
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                    title="Ativar monitoramento"
+                                                    onClick={() => marcarComoAtivo(processo.id)}
+                                                >
+                                                    <CheckCircle2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                         </TableCell>
@@ -273,16 +327,16 @@ const DashboardProcessos = () => {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
                     <p>
-                        O sistema usa callbacks automáticos da API Escavador V2. Ao importar um processo,
-                        uma solicitação de atualização é enviada com callback habilitado.
+                        O sistema usa callbacks automáticos da API Escavador V2. Ao importar um processo, uma
+                        solicitação de atualização é enviada com callback habilitado.
                     </p>
                     <p>
-                        Quando o Escavador finaliza a análise do processo, envia um callback automaticamente
-                        com as novas movimentações. Isso elimina a necessidade de polling diário.
+                        Quando o Escavador finaliza a análise do processo, envia um callback automaticamente com as
+                        novas movimentações. Isso elimina a necessidade de polling diário.
                     </p>
                     <p>
-                        Um health-check semanal verifica processos com status inconsistente e re-solicita
-                        atualização quando necessário.
+                        Um health-check semanal verifica processos com status inconsistente e re-solicita atualização
+                        quando necessário.
                     </p>
                 </CardContent>
             </Card>

@@ -123,6 +123,8 @@ serve(async (req) => {
                     ultima_movimentacao_data: processo.data_ultima_movimentacao,
                     last_checked_at: new Date().toISOString(),
                     ativo: true,
+                    monitoramento_ativo: true,
+                    status_atualizacao: "PENDING",
                     user_id: body.user_id || null,
                 }));
 
@@ -130,6 +132,32 @@ serve(async (req) => {
                 const { error: insertError } = await supabase.from("processos").upsert(processosParaInserir, {
                     onConflict: "numero_processo",
                 });
+
+                // Tentar solicitar atualização com callback para cada um (fire and forget ou serial)
+                // Usando ESCAVADOR_TOKEN (que já verificamos existir)
+                for (const processo of escavadorData.processos) {
+                    try {
+                        const numero = processo.numero_processo.replace(/\D/g, "");
+                        // Formato CNJ: 0012345-67.2024.8.26.0100
+                        const formatted = `${numero.slice(0, 7)}-${numero.slice(7, 9)}.${numero.slice(9, 13)}.${numero.slice(13, 14)}.${numero.slice(14, 16)}.${numero.slice(16, 20)}`;
+
+                        await fetch(
+                            `https://api.escavador.com/api/v2/processos/numero_cnj/${encodeURIComponent(formatted)}/solicitar-atualizacao`,
+                            {
+                                method: "POST",
+                                headers: {
+                                    Authorization: `Bearer ${escavadorToken}`,
+                                    "Content-Type": "application/json",
+                                    "X-Requested-With": "XMLHttpRequest",
+                                },
+                                body: JSON.stringify({ enviar_callback: 1 }),
+                            },
+                        );
+                        console.log(`Callback solicitado para: ${formatted}`);
+                    } catch (e) {
+                        console.error(`Erro ao solicitar callback para ${processo.numero_processo}:`, e);
+                    }
+                }
 
                 if (insertError) {
                     console.error("Database insert error:", insertError);

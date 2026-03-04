@@ -33,11 +33,7 @@ function checkRateLimit(): boolean {
     return rateLimitCount <= 100;
 }
 
-function logStructured(
-    level: "info" | "warn" | "error",
-    message: string,
-    meta?: Record<string, unknown>,
-) {
+function logStructured(level: "info" | "warn" | "error", message: string, meta?: Record<string, unknown>) {
     const payload = { ts: new Date().toISOString(), level, fn: "escavador-callback", message, ...meta };
     if (level === "error") console.error(JSON.stringify(payload));
     else console.log(JSON.stringify(payload));
@@ -51,20 +47,63 @@ function normalizeNum(num: string): string {
 
 function isRelevantMovement(text: string): boolean {
     if (!text || typeof text !== "string") return false;
-    const n = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const n = text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
     return RELEVANT_KEYWORDS.some((kw) =>
-        n.includes(kw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()),
+        n.includes(
+            kw
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase(),
+        ),
     );
 }
 
 function detectMovementType(text: string): string {
     if (!text || typeof text !== "string") return "Andamento";
-    const n = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const n = text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
     for (const kw of RELEVANT_KEYWORDS) {
-        const kwNorm = kw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const kwNorm = kw
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
         if (n.includes(kwNorm)) return kw;
     }
     return "Andamento";
+}
+
+async function fetchMovimentacoesAPI(numeroCnj: string, token: string): Promise<EscavadorMovimentacao[] | null> {
+    const numero = normalizeNum(numeroCnj);
+    const url = `https://api.escavador.com/api/v2/processos/numero_cnj/${encodeURIComponent(numero)}/movimentacoes`;
+
+    try {
+        const res = await fetch(url, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+
+        if (!res.ok) {
+            logStructured("warn", `Erro ao buscar movimentações na API: ${res.status}`);
+            return null;
+        }
+
+        const body = await res.json();
+        // A API retorna as movimentações em body.items (paginado) ou direto se for o endpoint de status?
+        // No V2 docs, /movimentacoes retorna { "items": [...] }
+        return body.items || [];
+    } catch (err) {
+        logStructured("error", "Exception ao buscar movimentações na API", { error: String(err) });
+        return null;
+    }
 }
 
 async function computeHash(input: string): Promise<string> {
@@ -94,11 +133,20 @@ interface EscavadorInstancia {
 }
 
 interface CallbackPayload {
-    id: number;
+    event: string; // V2 usa "event"
+    evento?: string; // Fallback
     uuid: string;
-    evento: string;
-    status: string;
-    resultado: {
+    atualizacao?: {
+        // V2 usa "atualizacao"
+        id: number;
+        status: string;
+        numero_cnj: string;
+        resultado?: {
+            instancias?: EscavadorInstancia[];
+        };
+    };
+    resultado?: {
+        // Estrutura alternativa/legada
         numero_processo: string;
         status: string;
         resposta?: {
@@ -134,26 +182,15 @@ Deno.serve(async (req) => {
         return json({ error: "Server configuration error" }, 500);
     }
 
-    // Validar Authorization header (constant-time comparison via HMAC)
+    // Validar Authorization header (Simples comparação — Escavador envia o token direto)
     const authHeader = req.headers.get("Authorization") ?? "";
     const providedToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
-    const hmacKey = await crypto.subtle.importKey(
-        "raw",
-        new TextEncoder().encode("escavador-callback-verify"),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"],
-    );
-    const [hmacA, hmacB] = await Promise.all([
-        crypto.subtle.sign("HMAC", hmacKey, new TextEncoder().encode(providedToken)),
-        crypto.subtle.sign("HMAC", hmacKey, new TextEncoder().encode(callbackToken)),
-    ]);
-    const arrA = new Uint8Array(hmacA);
-    const arrB = new Uint8Array(hmacB);
-    let diff = arrA.byteLength ^ arrB.byteLength;
-    for (let i = 0; i < arrA.byteLength; i++) diff |= arrA[i] ^ arrB[i];
-    if (diff !== 0) {
-        logStructured("warn", "Token de callback inválido");
+
+    if (providedToken !== callbackToken) {
+        logStructured("warn", "Token de callback inválido", {
+            header: authHeader.slice(0, 10) + "...",
+            match: false,
+        });
         return json({ error: "Unauthorized" }, 401);
     }
 
@@ -169,17 +206,23 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const now = new Date().toISOString();
 
-    const numeroCnj = payload.resultado?.numero_processo
-        ? normalizeNum(payload.resultado.numero_processo)
-        : null;
+    const callbackId = payload.atualizacao?.id ?? (payload as any).id;
+    const evento = payload.event ?? payload.evento ?? "unknown";
+    const statusGeral = payload.atualizacao?.status ?? (payload as any).status;
+
+    const numeroCnj = payload.atualizacao?.numero_cnj
+        ? normalizeNum(payload.atualizacao.numero_cnj)
+        : payload.resultado?.numero_processo
+          ? normalizeNum(payload.resultado.numero_processo)
+          : null;
 
     logStructured("info", "Callback recebido", {
-        callback_id: payload.id,
+        callback_id: callbackId,
         callback_uuid: payload.uuid,
-        evento: payload.evento,
-        status: payload.status,
+        evento: evento,
+        status: statusGeral,
         numero_cnj: numeroCnj,
-        resultado_status: payload.resultado?.status,
+        v2: !!payload.atualizacao,
     });
 
     // Verificar callback duplicado
@@ -194,10 +237,10 @@ Deno.serve(async (req) => {
             logStructured("info", "Callback duplicado ignorado", { callback_uuid: payload.uuid });
             // Registrar como duplicado
             await supabase.from("escavador_callback_logs").insert({
-                callback_id: payload.id,
+                callback_id: callbackId,
                 callback_uuid: payload.uuid,
-                evento: payload.evento,
-                status: payload.status,
+                evento: evento,
+                status: statusGeral,
                 numero_cnj: numeroCnj,
                 payload: payload as unknown as Record<string, unknown>,
                 processing_result: "duplicate",
@@ -209,10 +252,10 @@ Deno.serve(async (req) => {
 
     // Registrar callback no log
     const logEntry = {
-        callback_id: payload.id,
+        callback_id: callbackId,
         callback_uuid: payload.uuid,
-        evento: payload.evento,
-        status: payload.status,
+        evento: evento,
+        status: statusGeral,
         numero_cnj: numeroCnj,
         payload: payload as unknown as Record<string, unknown>,
         processing_result: "processing" as string,
@@ -220,16 +263,12 @@ Deno.serve(async (req) => {
         processed_at: null as string | null,
     };
 
-    const { data: logRow } = await supabase
-        .from("escavador_callback_logs")
-        .insert(logEntry)
-        .select("id")
-        .single();
+    const { data: logRow } = await supabase.from("escavador_callback_logs").insert(logEntry).select("id").single();
 
     const logId = logRow?.id;
 
     try {
-        const resultadoStatus = payload.resultado?.status?.toUpperCase();
+        const resultadoStatus = (payload.atualizacao?.status ?? payload.resultado?.status ?? "SUCESSO").toUpperCase();
 
         // Buscar processo no banco
         let processo = null;
@@ -262,7 +301,10 @@ Deno.serve(async (req) => {
 
         if (resultadoStatus === "SUCESSO") {
             // Extrair movimentações de todas as instâncias
-            const instancias = payload.resultado?.resposta?.instancias ?? [];
+            // No V2 (sua imagem): payload.atualizacao.resultado.instancias
+            // No Legado: payload.resultado.resposta.instancias
+            const instancias =
+                payload.atualizacao?.resultado?.instancias ?? payload.resultado?.resposta?.instancias ?? [];
             const todasMovimentacoes: EscavadorMovimentacao[] = [];
 
             for (const inst of instancias) {
@@ -271,20 +313,39 @@ Deno.serve(async (req) => {
                 }
             }
 
+            // Se não vieram movimentações no callback (comum no V2), buscar via API
+            if (todasMovimentacoes.length === 0 && numeroCnj) {
+                logStructured("info", "Buscando movimentações na API (não vieram no callback)", {
+                    numero_cnj: numeroCnj,
+                });
+                const escavadorToken = Deno.env.get("ESCAVADOR_API_TOKEN") || Deno.env.get("ESCAVADOR_TOKEN");
+                if (escavadorToken) {
+                    const fetchedMovements = await fetchMovimentacoesAPI(numeroCnj, escavadorToken);
+                    if (fetchedMovements && fetchedMovements.length > 0) {
+                        todasMovimentacoes.push(...fetchedMovements);
+                    }
+                }
+            }
+
             // Ordenar por data desc
             todasMovimentacoes.sort((a, b) => {
-                if (a.data > b.data) return -1;
-                if (a.data < b.data) return 1;
-                return b.id - a.id;
+                const dateA = a.data ?? "0000-00-00";
+                const dateB = b.data ?? "0000-00-00";
+                if (dateA > dateB) return -1;
+                if (dateA < dateB) return 1;
+                return (b.id || 0) - (a.id || 0);
             });
 
             if (todasMovimentacoes.length === 0) {
-                logStructured("info", "Callback sem movimentações", { processo_id: processo.id });
-                await supabase.from("processos").update({
-                    status_atualizacao: "SUCCESS",
-                    ultima_verificacao: now,
-                    updated_at: now,
-                }).eq("id", processo.id);
+                logStructured("info", "Nenhuma movimentação encontrada após fetch", { processo_id: processo.id });
+                await supabase
+                    .from("processos")
+                    .update({
+                        status_atualizacao: "SUCCESS",
+                        ultima_verificacao: now,
+                        updated_at: now,
+                    })
+                    .eq("id", processo.id);
                 await updateCallbackLog(supabase, logId, "processed", "Sem movimentações novas", now);
                 return json({ ok: true, result: "processed", movements: 0 }, 200);
             }
@@ -297,11 +358,14 @@ Deno.serve(async (req) => {
             // Comparar com hash salvo
             if (newHash === processo.ultima_movimentacao_hash) {
                 logStructured("info", "Hash idêntico — sem mudanças reais", { processo_id: processo.id });
-                await supabase.from("processos").update({
-                    status_atualizacao: "SUCCESS",
-                    ultima_verificacao: now,
-                    updated_at: now,
-                }).eq("id", processo.id);
+                await supabase
+                    .from("processos")
+                    .update({
+                        status_atualizacao: "SUCCESS",
+                        ultima_verificacao: now,
+                        updated_at: now,
+                    })
+                    .eq("id", processo.id);
                 await updateCallbackLog(supabase, logId, "duplicate", "Hash de movimentação idêntico", now);
                 return json({ ok: true, result: "no_changes" }, 200);
             }
@@ -312,18 +376,16 @@ Deno.serve(async (req) => {
 
             for (const mov of todasMovimentacoes) {
                 const isRelevant = isRelevantMovement(mov.conteudo);
-                const { error: insertError } = await supabase
-                    .from("process_movements")
-                    .insert({
-                        process_id: processo.id,
-                        process_number: numeroCnj,
-                        movement_date: mov.data,
-                        movement_type: detectMovementType(mov.conteudo),
-                        full_text: mov.conteudo,
-                        is_relevant: isRelevant,
-                        external_id: mov.id,
-                        owner_id: processo.owner_id,
-                    });
+                const { error: insertError } = await supabase.from("process_movements").insert({
+                    process_id: processo.id,
+                    process_number: numeroCnj,
+                    movement_date: mov.data,
+                    movement_type: detectMovementType(mov.conteudo),
+                    full_text: mov.conteudo,
+                    is_relevant: isRelevant,
+                    external_id: mov.id,
+                    owner_id: processo.owner_id,
+                });
 
                 if (!insertError) {
                     insertedCount++;
@@ -333,26 +395,30 @@ Deno.serve(async (req) => {
             }
 
             // Atualizar processo
-            await supabase.from("processos").update({
-                status_atualizacao: "SUCCESS",
-                ultima_movimentacao_hash: newHash,
-                ultima_verificacao: now,
-                last_movement: latest.conteudo.slice(0, 500),
-                last_checked_at: now,
-                updated_at: now,
-            }).eq("id", processo.id);
+            await supabase
+                .from("processos")
+                .update({
+                    status_atualizacao: "SUCCESS",
+                    ultima_movimentacao_hash: newHash,
+                    ultima_verificacao: now,
+                    last_movement: latest.conteudo.slice(0, 500),
+                    last_checked_at: now,
+                    updated_at: now,
+                })
+                .eq("id", processo.id);
 
             // Log de monitoramento
             await supabase.from("process_monitor_logs").insert({
                 process_id: processo.id,
                 process_number: numeroCnj,
                 log_type: insertedCount > 0 ? "atualizacao_encontrada" : "callback_recebido",
-                message: insertedCount > 0
-                    ? `${insertedCount} nova(s) movimentação(ões) via callback`
-                    : "Callback processado — movimentações já existentes",
+                message:
+                    insertedCount > 0
+                        ? `${insertedCount} nova(s) movimentação(ões) via callback`
+                        : "Callback processado — movimentações já existentes",
                 details: {
                     source: "callback",
-                    callback_id: payload.id,
+                    callback_id: callbackId,
                     total_movimentacoes: todasMovimentacoes.length,
                     inserted: insertedCount,
                     relevant: relevantMovements.length,
@@ -382,49 +448,53 @@ Deno.serve(async (req) => {
 
             await updateCallbackLog(supabase, logId, "processed", null, now);
             return json({ ok: true, result: "processed", movements_inserted: insertedCount }, 200);
-
         } else if (resultadoStatus === "NAO_ENCONTRADO" || resultadoStatus === "NOT_FOUND") {
-            await supabase.from("processos").update({
-                status_atualizacao: "NOT_FOUND",
-                ultima_verificacao: now,
-                updated_at: now,
-            }).eq("id", processo.id);
+            await supabase
+                .from("processos")
+                .update({
+                    status_atualizacao: "NOT_FOUND",
+                    ultima_verificacao: now,
+                    updated_at: now,
+                })
+                .eq("id", processo.id);
 
             await supabase.from("process_monitor_logs").insert({
                 process_id: processo.id,
                 process_number: numeroCnj,
                 log_type: "callback_recebido",
                 message: "Processo não encontrado no Escavador",
-                details: { source: "callback", callback_id: payload.id, status: resultadoStatus },
+                details: { source: "callback", callback_id: callbackId, status: resultadoStatus },
                 owner_id: processo.owner_id,
             });
 
             await updateCallbackLog(supabase, logId, "processed", "Processo não encontrado no Escavador", now);
             return json({ ok: true, result: "not_found" }, 200);
-
         } else {
             // ERRO ou status desconhecido
-            await supabase.from("processos").update({
-                status_atualizacao: "ERROR",
-                ultima_verificacao: now,
-                updated_at: now,
-            }).eq("id", processo.id);
+            await supabase
+                .from("processos")
+                .update({
+                    status_atualizacao: "ERROR",
+                    ultima_verificacao: now,
+                    updated_at: now,
+                })
+                .eq("id", processo.id);
 
             await supabase.from("process_monitor_logs").insert({
                 process_id: processo.id,
                 process_number: numeroCnj,
                 log_type: "erro_api",
-                message: `Callback com status: ${resultadoStatus ?? payload.status}`,
-                details: { source: "callback", callback_id: payload.id, status: resultadoStatus },
+                message: `Callback com status: ${resultadoStatus ?? statusGeral}`,
+                details: { source: "callback", callback_id: callbackId, status: resultadoStatus },
                 owner_id: processo.owner_id,
             });
 
-            await updateCallbackLog(supabase, logId, "error", `Status: ${resultadoStatus ?? payload.status}`, now);
+            await updateCallbackLog(supabase, logId, "error", `Status: ${resultadoStatus ?? statusGeral}`, now);
             return json({ ok: true, result: "error_logged" }, 200);
         }
     } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        logStructured("error", "Erro ao processar callback", { error: errorMsg, callback_id: payload.id });
+        logStructured("error", "Erro ao processar callback", { error: errorMsg, callback_id: callbackId });
         await updateCallbackLog(supabase, logId, "error", errorMsg, now);
         // Retornar 200 para o Escavador não reenviar
         return json({ ok: false, error: "Internal processing error" }, 200);

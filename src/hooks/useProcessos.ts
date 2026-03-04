@@ -98,6 +98,8 @@ export function useCreateProcesso() {
                     owner_id: user?.id ?? null,
                     numero_processo: processo.number,
                     ativo: true,
+                    monitoramento_ativo: true,
+                    status_atualizacao: "NONE",
                     last_checked_at: pastDate,
                 })
                 .select()

@@ -21,11 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ESCAVADOR_BASE = "https://api.escavador.com/api/v2";
 
-function logStructured(
-    level: "info" | "warn" | "error",
-    message: string,
-    meta?: Record<string, unknown>,
-) {
+function logStructured(level: "info" | "warn" | "error", message: string, meta?: Record<string, unknown>) {
     const payload = { ts: new Date().toISOString(), level, fn: "migrar-monitoramento-callback", message, ...meta };
     if (level === "error") console.error(JSON.stringify(payload));
     else console.log(JSON.stringify(payload));
@@ -65,13 +61,25 @@ async function solicitarAtualizacao(
     }
 }
 
+const corsHeaders = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
+};
+
 const json = (body: unknown, status: number) =>
     new Response(JSON.stringify(body), {
         status,
-        headers: { "Content-Type": "application/json" },
+        headers: corsHeaders,
     });
 
 Deno.serve(async (req) => {
+    // Handle CORS
+    if (req.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders, status: 204 });
+    }
+
     if (req.method !== "POST") {
         return json({ error: "Method not allowed. Use POST." }, 405);
     }
@@ -96,13 +104,25 @@ Deno.serve(async (req) => {
 
     logStructured("info", "Migração batch iniciada", { run_id: runId });
 
+    // Parse body for optional process_id
+    let processId = null;
+    try {
+        const body = await req.json();
+        processId = body.process_id;
+    } catch {
+        // No body or invalid JSON, proceed with all
+    }
+
     // Buscar processos que ainda não têm callback configurado
-    // Usa 'number' (campo principal) e fallback para numero_processo
-    const { data: processos, error: fetchError } = await supabase
-        .from("processos")
-        .select("id, number, owner_id, status_atualizacao")
-        .or("status_atualizacao.is.null,status_atualizacao.eq.NONE")
-        .not("number", "is", null);
+    let query = supabase.from("processos").select("id, number, owner_id, status_atualizacao").not("number", "is", null);
+
+    if (processId) {
+        query = query.eq("id", processId);
+    } else {
+        query = query.or("status_atualizacao.is.null,status_atualizacao.eq.NONE");
+    }
+
+    const { data: processos, error: fetchError } = await query;
 
     if (fetchError) {
         logStructured("error", "Erro ao buscar processos", { error: fetchError.message });
@@ -153,13 +173,16 @@ Deno.serve(async (req) => {
                 owner_id: proc.owner_id,
             });
         } else {
-            await supabase.from("processos").update({
-                escavador_update_id: updateId,
-                status_atualizacao: "PENDING",
-                monitoramento_ativo: true,
-                ultima_verificacao: now,
-                updated_at: now,
-            }).eq("id", proc.id);
+            await supabase
+                .from("processos")
+                .update({
+                    escavador_update_id: updateId,
+                    status_atualizacao: "PENDING",
+                    monitoramento_ativo: true,
+                    ultima_verificacao: now,
+                    updated_at: now,
+                })
+                .eq("id", proc.id);
 
             await supabase.from("process_monitor_logs").insert({
                 process_id: proc.id,
@@ -184,12 +207,15 @@ Deno.serve(async (req) => {
         errored,
     });
 
-    return json({
-        ok: true,
-        run_id: runId,
-        total: processos.length,
-        migrated,
-        errored,
-        error_details: errorDetails.length > 0 ? errorDetails : undefined,
-    }, 200);
+    return json(
+        {
+            ok: true,
+            run_id: runId,
+            total: processos.length,
+            migrated,
+            errored,
+            error_details: errorDetails.length > 0 ? errorDetails : undefined,
+        },
+        200,
+    );
 });

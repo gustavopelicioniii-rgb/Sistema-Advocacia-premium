@@ -7,7 +7,7 @@ interface Processo {
     court: string;
     last_movement: string;
     last_checked_at: string | null;
-    status_atualizacao: 'NONE' | 'PENDING' | 'SUCCESS' | 'ERROR' | 'NOT_FOUND';
+    status_atualizacao: "NONE" | "PENDING" | "SUCCESS" | "ERROR" | "NOT_FOUND";
     monitoramento_ativo: boolean;
 }
 
@@ -48,8 +48,8 @@ export function useProcessosMonitoring() {
                     method: "GET",
                     headers: {
                         "Content-Type": "application/json",
-                        "apikey": anonKey,
-                        "Authorization": `Bearer ${anonKey}`,
+                        apikey: anonKey,
+                        Authorization: `Bearer ${anonKey}`,
                     },
                 },
             );
@@ -88,18 +88,15 @@ export function useProcessosMonitoring() {
                     throw new Error("Supabase não configurado");
                 }
 
-                const response = await fetch(
-                    `${supabaseUrl}/rest/v1/processos?id=eq.${processoId}`,
-                    {
-                        method: "PATCH",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "apikey": anonKey,
-                            "Authorization": `Bearer ${anonKey}`,
-                        },
-                        body: JSON.stringify({ monitoramento_ativo: false }),
+                const response = await fetch(`${supabaseUrl}/rest/v1/processos?id=eq.${processoId}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        apikey: anonKey,
+                        Authorization: `Bearer ${anonKey}`,
                     },
-                );
+                    body: JSON.stringify({ monitoramento_ativo: false }),
+                });
 
                 if (!response.ok) {
                     throw new Error(`Erro ao desativar: ${response.status}`);
@@ -130,6 +127,66 @@ export function useProcessosMonitoring() {
         [supabaseUrl, anonKey, toast],
     );
 
+    const marcarComoAtivo = useCallback(
+        async (processoId: string) => {
+            try {
+                if (!supabaseUrl || !anonKey) {
+                    throw new Error("Supabase não configurado");
+                }
+
+                const response = await fetch(`${supabaseUrl}/rest/v1/processos?id=eq.${processoId}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        apikey: anonKey,
+                        Authorization: `Bearer ${anonKey}`,
+                    },
+                    body: JSON.stringify({
+                        monitoramento_ativo: true,
+                        status_atualizacao: "NONE",
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro ao ativar: ${response.status}`);
+                }
+
+                // Chamar a função de migração/solicitação para ativar o callback imediatamente
+                await fetch(`${supabaseUrl}/functions/v1/migrar-monitoramento-callback`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        apikey: anonKey,
+                        Authorization: `Bearer ${anonKey}`,
+                    },
+                    body: JSON.stringify({ process_id: processoId }),
+                });
+
+                setState((prev) => ({
+                    ...prev,
+                    processos: prev.processos.map((p) =>
+                        p.id === processoId ? { ...p, monitoramento_ativo: true, status_atualizacao: "PENDING" } : p,
+                    ),
+                }));
+
+                toast({
+                    title: "Monitoramento ativado",
+                    description: "O processo entrará na fila para atualização",
+                    variant: "default",
+                });
+            } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
+
+                toast({
+                    title: "Erro ao ativar monitoramento",
+                    description: errorMessage,
+                    variant: "destructive",
+                });
+            }
+        },
+        [supabaseUrl, anonKey, toast],
+    );
+
     useEffect(() => {
         fetchProcessos();
     }, [fetchProcessos]);
@@ -138,5 +195,6 @@ export function useProcessosMonitoring() {
         ...state,
         fetchProcessos,
         marcarComoInativo,
+        marcarComoAtivo,
     };
 }
