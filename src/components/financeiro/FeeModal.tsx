@@ -5,7 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useCreateFee, useUpdateFee, type Fee, type FeeInsert, type PaymentMethod, type InstallmentStatus } from "@/hooks/useFees";
+import {
+    useCreateFee,
+    useUpdateFee,
+    type Fee,
+    type FeeInsert,
+    type PaymentMethod,
+    type InstallmentStatus,
+} from "@/hooks/useFees";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays } from "lucide-react";
@@ -16,14 +23,26 @@ interface FeeModalProps {
     fee?: Fee | null;
 }
 
-const fmt = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 function addMonths(dateStr: string, months: number): string {
     const d = new Date(dateStr + "T12:00:00");
     d.setMonth(d.getMonth() + months);
     return d.toISOString().split("T")[0];
 }
+
+const emptyForm = (fee?: Fee | null) => ({
+    client: fee?.client ?? "",
+    process_number: fee?.process_number ?? "",
+    description: fee?.description ?? "",
+    value: fee?.value ?? 0,
+    status: (fee?.status ?? "Pendente") as Fee["status"],
+    due_date: fee?.due_date ?? (null as string | null),
+    paid_date: fee?.paid_date ?? (null as string | null),
+    payment_method: (fee?.payment_method ?? "a_vista") as PaymentMethod,
+    entrada_value: fee?.entrada_value ?? (null as number | null),
+    installments: fee?.installments ?? (null as number | null),
+});
 
 export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
     const { user } = useAuth();
@@ -32,36 +51,23 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
     const updateMutation = useUpdateFee();
     const isEditing = !!fee;
 
-    const [form, setForm] = useState({
-        client: fee?.client ?? "",
-        process_number: fee?.process_number ?? "",
-        description: fee?.description ?? "",
-        value: fee?.value ?? 0,
-        status: fee?.status ?? ("Pendente" as Fee["status"]),
-        payment_method: (fee?.payment_method ?? "a_vista") as PaymentMethod,
-        entrada_value: fee?.entrada_value ?? (null as number | null),
-        installments: fee?.installments ?? (null as number | null),
-    });
-
-    // Parcelas com due_date e paid_date individuais (number=0 é a entrada)
+    const [form, setForm] = useState(emptyForm(fee));
     const [parcelas, setParcelas] = useState<InstallmentStatus[]>([]);
-    // Data de vencimento da 1ª parcela (para gerar automático)
     const [firstDueDate, setFirstDueDate] = useState("");
 
-    const setField = (field: string, value: string | number | null) =>
+    const setField = <K extends keyof typeof form>(field: K, value: (typeof form)[K]) =>
         setForm((prev) => ({ ...prev, [field]: value }));
 
-    const buildParcelas = (
+    function buildParcelas(
         installments: number,
         paymentMethod: PaymentMethod,
         entradaValue: number | null,
         totalValue: number,
         existing: InstallmentStatus[],
         firstDate: string,
-    ): InstallmentStatus[] => {
+    ): InstallmentStatus[] {
         const result: InstallmentStatus[] = [];
 
-        // Entrada (number = 0)
         if (paymentMethod === "entrada_parcelas" && entradaValue != null && entradaValue > 0) {
             const prev = existing.find((s) => s.number === 0);
             result.push({
@@ -73,12 +79,13 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
             });
         }
 
-        // Parcelas
         const entVal = paymentMethod === "entrada_parcelas" ? (entradaValue ?? 0) : 0;
         const parcelValue = installments > 0 ? (totalValue - entVal) / installments : 0;
+
         for (let i = 1; i <= installments; i++) {
             const prev = existing.find((s) => s.number === i);
-            const autoDate = firstDate ? addMonths(firstDate, paymentMethod === "entrada_parcelas" ? i : i - 1) : null;
+            const offset = paymentMethod === "entrada_parcelas" ? i : i - 1;
+            const autoDate = firstDate ? addMonths(firstDate, offset) : null;
             result.push({
                 number: i,
                 paid: prev?.paid ?? false,
@@ -88,22 +95,13 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
             });
         }
         return result;
-    };
+    }
 
     useEffect(() => {
         if (!open) return;
+        const next = emptyForm(fee);
+        setForm(next);
         const existing = fee?.installments_status ?? [];
-        setForm({
-            client: fee?.client ?? "",
-            process_number: fee?.process_number ?? "",
-            description: fee?.description ?? "",
-            value: fee?.value ?? 0,
-            status: fee?.status ?? "Pendente",
-            payment_method: (fee?.payment_method ?? "a_vista") as PaymentMethod,
-            entrada_value: fee?.entrada_value ?? null,
-            installments: fee?.installments ?? null,
-        });
-        // Recupera data de vencimento da 1ª parcela (number=1)
         const first = existing.find((s) => s.number === 1);
         const initDate = first?.due_date ?? "";
         setFirstDueDate(initDate);
@@ -124,14 +122,11 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, fee?.id]);
 
-    // Recria a lista de parcelas quando muda número de parcelas, entrada ou método
     const handleInstallmentsChange = (val: string) => {
         const n = val ? parseInt(val, 10) : null;
         setField("installments", n);
         if (n && n > 0) {
-            setParcelas(
-                buildParcelas(n, form.payment_method, form.entrada_value, form.value, parcelas, firstDueDate),
-            );
+            setParcelas(buildParcelas(n, form.payment_method, form.entrada_value, form.value, parcelas, firstDueDate));
         } else {
             setParcelas([]);
         }
@@ -141,9 +136,7 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
         const v = val ? parseFloat(val) : null;
         setField("entrada_value", v);
         if (form.installments && form.installments > 0) {
-            setParcelas(
-                buildParcelas(form.installments, form.payment_method, v, form.value, parcelas, firstDueDate),
-            );
+            setParcelas(buildParcelas(form.installments, form.payment_method, v, form.value, parcelas, firstDueDate));
         }
     };
 
@@ -170,10 +163,11 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                     firstDueDate,
                 ),
             );
+        } else {
+            setParcelas([]);
         }
     };
 
-    // Gera datas automaticamente a partir da firstDueDate
     const handleAutoGenerateDates = () => {
         if (!firstDueDate) {
             toast({ title: "Informe a data de vencimento da 1ª parcela." });
@@ -181,10 +175,7 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
         }
         setParcelas((prev) =>
             prev.map((p) => {
-                if (p.number === 0) {
-                    // Entrada: mantém ou usa a mesma data da 1ª parcela
-                    return { ...p, due_date: p.due_date ?? firstDueDate };
-                }
+                if (p.number === 0) return { ...p, due_date: p.due_date ?? firstDueDate };
                 const offset = form.payment_method === "entrada_parcelas" ? p.number : p.number - 1;
                 return { ...p, due_date: addMonths(firstDueDate, offset) };
             }),
@@ -196,11 +187,9 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
             prev.map((p) => {
                 if (p.number !== number) return p;
                 const updated = { ...p, [field]: value };
-                // Se marcar como pago sem data, preenche hoje
                 if (field === "paid" && value === true && !updated.paid_date) {
                     updated.paid_date = new Date().toISOString().split("T")[0];
                 }
-                // Se desmarcar, limpa data de pagamento
                 if (field === "paid" && value === false) {
                     updated.paid_date = null;
                 }
@@ -235,41 +224,45 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
             return;
         }
 
-        // Calcular status geral baseado nas parcelas
+        // Status calculado pelas parcelas (se existirem)
         let computedStatus: Fee["status"] = form.status;
         if (parcelas.length > 0) {
             const allPaid = parcelas.every((p) => p.paid);
             computedStatus = allPaid ? "Pago" : "Pendente";
         }
 
-        // Due_date e paid_date gerais = da 1ª parcela (número 1)
+        // Para à vista: due_date e paid_date vêm do form
+        // Para parcelado: vêm da 1ª parcela
         const firstParcela = parcelas.find((p) => p.number === 1);
-        const entradaParcela = parcelas.find((p) => p.number === 0);
+        const due_date = parcelas.length > 0 ? (firstParcela?.due_date ?? null) : form.due_date;
+        const paid_date = parcelas.length > 0 ? (firstParcela?.paid_date ?? null) : form.paid_date;
 
-        const payload = {
-            ...form,
+        const payload: FeeInsert = {
+            client: form.client,
+            process_number: form.process_number,
+            description: form.description,
+            value: form.value,
             status: computedStatus,
-            due_date: firstParcela?.due_date ?? null,
-            paid_date: firstParcela?.paid_date ?? null,
+            due_date,
+            paid_date,
+            payment_method: form.payment_method,
             entrada_value: form.entrada_value ?? null,
             installments: form.installments ?? null,
             installments_status: parcelas.length > 0 ? parcelas : null,
-            // Armazena info de vencimento/pagamento da entrada também
-            ...(entradaParcela && { entrada_due_date: entradaParcela.due_date }),
+            owner_id: fee?.owner_id ?? user?.id ?? null,
         };
 
         if (isEditing && fee) {
-            await updateMutation.mutateAsync({ id: fee.id, ...payload, owner_id: fee.owner_id });
+            await updateMutation.mutateAsync({ id: fee.id, ...payload });
         } else {
-            const newFee: FeeInsert = { ...payload, owner_id: user?.id ?? null };
-            await createMutation.mutateAsync(newFee);
+            await createMutation.mutateAsync({ ...payload, owner_id: user?.id ?? null });
         }
         onOpenChange(false);
     };
 
     const isPending = createMutation.isPending || updateMutation.isPending;
-    const showInstallments =
-        form.payment_method === "entrada_parcelas" || form.payment_method === "cartao_credito";
+    const showInstallments = form.payment_method === "entrada_parcelas" || form.payment_method === "cartao_credito";
+
     const entradaValue = form.entrada_value ?? 0;
     const parcelValue =
         form.installments && form.installments > 0
@@ -291,45 +284,49 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                         {isEditing ? "Editar Honorário" : "Novo Honorário"}
                     </DialogTitle>
                 </DialogHeader>
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Campos básicos */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="client">Cliente *</Label>
+                            <Label htmlFor="fee-client">Cliente *</Label>
                             <Input
-                                id="client"
+                                id="fee-client"
                                 placeholder="Nome do cliente"
                                 value={form.client}
                                 onChange={(e) => setField("client", e.target.value)}
                                 required
+                                autoComplete="off"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="process_number">Processo</Label>
+                            <Label htmlFor="fee-process">Processo</Label>
                             <Input
-                                id="process_number"
+                                id="fee-process"
                                 placeholder="0012345-67.2024 (opcional)"
                                 value={form.process_number}
                                 onChange={(e) => setField("process_number", e.target.value)}
+                                autoComplete="off"
                             />
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="description">Descrição</Label>
+                        <Label htmlFor="fee-desc">Descrição</Label>
                         <Input
-                            id="description"
+                            id="fee-desc"
                             placeholder="Honorários advocatícios, consulta..."
                             value={form.description}
                             onChange={(e) => setField("description", e.target.value)}
+                            autoComplete="off"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="value">Valor total (R$) *</Label>
+                            <Label htmlFor="fee-value">Valor total (R$) *</Label>
                             <Input
-                                id="value"
+                                id="fee-value"
                                 type="number"
                                 step="0.01"
                                 placeholder="0,00"
@@ -340,7 +337,7 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                         </div>
                         <div className="space-y-2">
                             <Label>Status</Label>
-                            <Select value={form.status} onValueChange={(v) => setField("status", v)}>
+                            <Select value={form.status} onValueChange={(v) => setField("status", v as Fee["status"])}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -357,7 +354,10 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                     {/* Forma de pagamento */}
                     <div className="space-y-2">
                         <Label>Forma de pagamento</Label>
-                        <Select value={form.payment_method} onValueChange={(v) => handleMethodChange(v as PaymentMethod)}>
+                        <Select
+                            value={form.payment_method}
+                            onValueChange={(v) => handleMethodChange(v as PaymentMethod)}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
@@ -369,15 +369,39 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                         </Select>
                     </div>
 
+                    {/* À vista: vencimento e pagamento simples */}
+                    {!showInstallments && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="fee-due">Vencimento</Label>
+                                <Input
+                                    id="fee-due"
+                                    type="date"
+                                    value={form.due_date ?? ""}
+                                    onChange={(e) => setField("due_date", e.target.value || null)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="fee-paid">Data de Pagamento</Label>
+                                <Input
+                                    id="fee-paid"
+                                    type="date"
+                                    value={form.paid_date ?? ""}
+                                    onChange={(e) => setField("paid_date", e.target.value || null)}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {/* Seção de parcelamento */}
                     {showInstallments && (
                         <div className="rounded-lg border p-4 space-y-4 bg-muted/20">
                             <div className="grid grid-cols-2 gap-4">
                                 {form.payment_method === "entrada_parcelas" && (
                                     <div className="space-y-2">
-                                        <Label htmlFor="entrada_value">Valor da Entrada (R$)</Label>
+                                        <Label htmlFor="fee-entrada">Valor da Entrada (R$)</Label>
                                         <Input
-                                            id="entrada_value"
+                                            id="fee-entrada"
                                             type="number"
                                             step="0.01"
                                             placeholder="0,00"
@@ -387,9 +411,9 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                                     </div>
                                 )}
                                 <div className="space-y-2">
-                                    <Label htmlFor="installments">Nº de parcelas</Label>
+                                    <Label htmlFor="fee-installments">Nº de parcelas</Label>
                                     <Input
-                                        id="installments"
+                                        id="fee-installments"
                                         type="number"
                                         min={1}
                                         placeholder="Ex.: 12"
@@ -403,8 +427,12 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                             {parcelas.length > 0 && (
                                 <div className="flex items-end gap-3">
                                     <div className="flex-1 space-y-2">
-                                        <Label>Vencimento da 1ª parcela</Label>
+                                        <Label htmlFor="fee-first-due">
+                                            Vencimento da{" "}
+                                            {form.payment_method === "entrada_parcelas" ? "entrada" : "1ª parcela"}
+                                        </Label>
                                         <Input
+                                            id="fee-first-due"
                                             type="date"
                                             value={firstDueDate}
                                             onChange={(e) => setFirstDueDate(e.target.value)}
@@ -426,7 +454,7 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                             {/* Entrada */}
                             {entradaParcela && (
                                 <div className="space-y-2">
-                                    <p className="text-sm font-semibold text-foreground">
+                                    <p className="text-sm font-semibold">
                                         Entrada — {fmt(entradaParcela.value ?? entradaValue)}
                                     </p>
                                     <div className="rounded-md border bg-background p-3 grid grid-cols-[auto_1fr_1fr_auto] gap-3 items-center">
@@ -472,34 +500,30 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                             {/* Lista de parcelas */}
                             {installmentParcelas.length > 0 && (
                                 <div className="space-y-2">
-                                    <p className="text-sm font-semibold text-foreground">
-                                        Parcelas — {fmt(parcelValue)} cada
-                                    </p>
-                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                    <p className="text-sm font-semibold">Parcelas — {fmt(parcelValue)} cada</p>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                         {installmentParcelas.map((parcela) => (
                                             <div
                                                 key={parcela.number}
                                                 className="rounded-md border bg-background p-3 grid grid-cols-[auto_auto_1fr_1fr_auto] gap-3 items-center"
                                             >
                                                 <Checkbox
-                                                    id={`parcela-${parcela.number}-paid`}
+                                                    id={`p-${parcela.number}`}
                                                     checked={parcela.paid}
-                                                    onCheckedChange={(v) =>
-                                                        updateParcela(parcela.number, "paid", !!v)
-                                                    }
+                                                    onCheckedChange={(v) => updateParcela(parcela.number, "paid", !!v)}
                                                 />
-                                                <span className="text-sm font-medium w-16 text-center">
+                                                <span className="text-sm font-medium w-12 text-center shrink-0">
                                                     {parcela.number}ª
                                                 </span>
-                                                <div className="space-y-1">
+                                                <div className="space-y-1 min-w-0">
                                                     <Label
-                                                        htmlFor={`parcela-${parcela.number}-due`}
+                                                        htmlFor={`p-${parcela.number}-due`}
                                                         className="text-xs text-muted-foreground"
                                                     >
                                                         Vencimento
                                                     </Label>
                                                     <Input
-                                                        id={`parcela-${parcela.number}-due`}
+                                                        id={`p-${parcela.number}-due`}
                                                         type="date"
                                                         value={parcela.due_date ?? ""}
                                                         onChange={(e) =>
@@ -512,9 +536,9 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                                                         className="h-8 text-sm"
                                                     />
                                                 </div>
-                                                <div className="space-y-1">
+                                                <div className="space-y-1 min-w-0">
                                                     <Label className="text-xs text-muted-foreground">
-                                                        Data de Pagamento
+                                                        Data Pagamento
                                                     </Label>
                                                     <Input
                                                         type="date"
@@ -543,44 +567,6 @@ export default function FeeModal({ open, onOpenChange, fee }: FeeModalProps) {
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* Vencimento e pagamento geral (somente para à vista) */}
-                    {form.payment_method === "a_vista" && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="due_date">Vencimento</Label>
-                                <Input
-                                    id="due_date"
-                                    type="date"
-                                    value={
-                                        parcelas.find((p) => p.number === 1)?.due_date ??
-                                        fee?.due_date ??
-                                        ""
-                                    }
-                                    onChange={(e) => {
-                                        const val = e.target.value || null;
-                                        setForm((prev) => ({ ...prev, due_date: val } as typeof prev));
-                                    }}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="paid_date">Data de Pagamento</Label>
-                                <Input
-                                    id="paid_date"
-                                    type="date"
-                                    value={
-                                        parcelas.find((p) => p.number === 1)?.paid_date ??
-                                        fee?.paid_date ??
-                                        ""
-                                    }
-                                    onChange={(e) => {
-                                        const val = e.target.value || null;
-                                        setForm((prev) => ({ ...prev, paid_date: val } as typeof prev));
-                                    }}
-                                />
-                            </div>
                         </div>
                     )}
 
