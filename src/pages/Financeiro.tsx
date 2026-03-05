@@ -17,6 +17,7 @@ import { DeleteConfirmDialogs } from "@/components/financeiro/DeleteConfirmDialo
 import { DollarSign, Split, TrendingDown } from "lucide-react";
 import { useFees, useDeleteFee, type Fee } from "@/hooks/useFees";
 import { useExpenses, useDeleteExpense, type OfficeExpense } from "@/hooks/useExpenses";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const Financeiro = () => {
     const { data: fees } = useFees();
@@ -136,20 +137,26 @@ const Financeiro = () => {
                 </TabsList>
 
                 <TabsContent value="honorarios" className="mt-4">
-                    <FeesTable onEdit={handleEditFee} onDelete={setDeleteTarget} onNew={handleNewFee} />
+                    <ErrorBoundary>
+                        <FeesTable onEdit={handleEditFee} onDelete={setDeleteTarget} onNew={handleNewFee} />
+                    </ErrorBoundary>
                 </TabsContent>
 
                 <TabsContent value="por-processo" className="mt-4">
-                    <FeesByProcess onEdit={handleEditFee} onNew={handleNewFee} />
+                    <ErrorBoundary>
+                        <FeesByProcess onEdit={handleEditFee} onNew={handleNewFee} />
+                    </ErrorBoundary>
                 </TabsContent>
 
                 <TabsContent value="despesas" className="mt-4 space-y-4">
                     <ExpensesDashboard hasExpenses={(expenses ?? []).length > 0} onNewExpense={handleNewExpense} />
-                    <ExpensesTable
-                        onEdit={handleEditExpense}
-                        onDelete={setDeleteExpenseTarget}
-                        onNew={handleNewExpense}
-                    />
+                    <ErrorBoundary>
+                        <ExpensesTable
+                            onEdit={handleEditExpense}
+                            onDelete={setDeleteExpenseTarget}
+                            onNew={handleNewExpense}
+                        />
+                    </ErrorBoundary>
                 </TabsContent>
             </Tabs>
 

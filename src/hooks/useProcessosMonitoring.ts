@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Processo {
     id: string;
     number: string;
+    client: string;
     court: string;
     last_movement: string;
     last_checked_at: string | null;
@@ -43,7 +44,7 @@ export function useProcessosMonitoring() {
             }
 
             const response = await fetch(
-                `${supabaseUrl}/rest/v1/processos?select=id,number,court,last_movement,last_checked_at,status_atualizacao,monitoramento_ativo&order=created_at.desc`,
+                `${supabaseUrl}/rest/v1/processos?select=id,number,client,court,last_movement,last_checked_at,status_atualizacao,monitoramento_ativo&order=created_at.desc`,
                 {
                     method: "GET",
                     headers: {

@@ -164,262 +164,265 @@ ${context}`;
     };
 
     return (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    {selectedTemplate && (
-                        <Button variant="ghost" size="icon" onClick={handleBackToTemplates}>
-                            <ChevronLeft className="h-5 w-5" />
+        <>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        {selectedTemplate && (
+                            <Button variant="ghost" size="icon" onClick={handleBackToTemplates}>
+                                <ChevronLeft className="h-5 w-5" />
+                            </Button>
+                        )}
+                        <div>
+                            <h1 className="font-display text-3xl font-bold text-foreground">Gerador de Peças (IA)</h1>
+                            <p className="mt-1 text-muted-foreground">
+                                {selectedTemplate
+                                    ? `Redigindo: ${selectedTemplate.titulo}`
+                                    : "Selecione um modelo para começar a peticionar com IA."}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)}>
+                            <Settings2 className="mr-2 h-4 w-4" />
+                            API
                         </Button>
-                    )}
-                    <div>
-                        <h1 className="font-display text-3xl font-bold text-foreground">Gerador de Peças (IA)</h1>
-                        <p className="mt-1 text-muted-foreground">
-                            {selectedTemplate
-                                ? `Redigindo: ${selectedTemplate.titulo}`
-                                : "Selecione um modelo para começar a peticionar com IA."}
-                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setHistoryOpen(!historyOpen)}>
+                            <Clock className="mr-2 h-4 w-4" />
+                            Peças Salvas
+                        </Button>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)}>
-                        <Settings2 className="mr-2 h-4 w-4" />
-                        API
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setHistoryOpen(!historyOpen)}>
-                        <Clock className="mr-2 h-4 w-4" />
-                        Peças Salvas
-                    </Button>
-                </div>
-            </div>
 
-            <AnimatePresence mode="wait">
-                {!selectedTemplate ? (
-                    <motion.div
-                        key="templates"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                    >
-                        <PecaTemplates onSelect={handleSelectTemplate} />
-                    </motion.div>
-                ) : (
-                    <motion.div
-                        key="generator"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="grid gap-6 lg:grid-cols-2"
-                    >
-                        {/* Left: Input */}
-                        <div className="space-y-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="font-display text-lg flex items-center gap-2">
-                                        <Sparkles className="h-5 w-5 text-accent" />
-                                        Configurar Peça
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label>Vincular a Processo (Opcional)</Label>
-                                        <Select value={selectedProcessId} onValueChange={setSelectedProcessId}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecione um processo cadastrado..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {processos?.map((p) => (
-                                                    <SelectItem key={p.id} value={p.id}>
-                                                        {p.number} — {p.client}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="context">Fatos e Contexto do Caso *</Label>
-                                        <Textarea
-                                            id="context"
-                                            placeholder="Descreva detalhadamente o caso..."
-                                            value={context}
-                                            onChange={(e) => setContext(e.target.value)}
-                                            className="min-h-[300px] resize-none p-4"
-                                        />
-                                    </div>
-                                    <Button
-                                        className="w-full"
-                                        size="lg"
-                                        onClick={handleGenerate}
-                                        disabled={isGenerating}
-                                    >
-                                        {isGenerating ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />A IA está redigindo...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Wand2 className="mr-2 h-5 w-5" />
-                                                Gerar Peça Completa
-                                            </>
-                                        )}
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Right: Output */}
-                        <div className="space-y-4">
-                            <Card className="min-h-[500px] flex flex-col">
-                                <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                                    <CardTitle className="font-display text-lg flex items-center gap-2">
-                                        <FileText className="h-5 w-5 text-primary" />
-                                        Rascunho da Peça
-                                    </CardTitle>
-                                    {generatedText && (
-                                        <div className="flex gap-2">
-                                            <Button variant="outline" size="sm" onClick={handleCopy}>
-                                                <Copy className="mr-2 h-3.5 w-3.5" />
-                                                Copiar
-                                            </Button>
-                                            <Button
-                                                variant="default"
-                                                size="sm"
-                                                onClick={handleSave}
-                                                disabled={saveMutation.isPending}
-                                            >
-                                                <Save className="mr-2 h-3.5 w-3.5" />
-                                                Salvar
-                                            </Button>
+                <AnimatePresence mode="wait">
+                    {!selectedTemplate ? (
+                        <motion.div
+                            key="templates"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                        >
+                            <PecaTemplates onSelect={handleSelectTemplate} />
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="generator"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="grid gap-6 lg:grid-cols-2"
+                        >
+                            {/* Left: Input */}
+                            <div className="space-y-4">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="font-display text-lg flex items-center gap-2">
+                                            <Sparkles className="h-5 w-5 text-accent" />
+                                            Configurar Peça
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label>Vincular a Processo (Opcional)</Label>
+                                            <Select value={selectedProcessId} onValueChange={setSelectedProcessId}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione um processo cadastrado..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {processos?.map((p) => (
+                                                        <SelectItem key={p.id} value={p.id}>
+                                                            {p.number} — {p.client}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                    )}
-                                </CardHeader>
-                                <CardContent className="flex-1 p-0">
-                                    {isGenerating ? (
-                                        <div className="flex flex-col items-center justify-center h-full py-20 text-center">
-                                            <Loader2 className="h-10 w-10 animate-spin text-accent" />
-                                            <p className="mt-4 text-sm font-medium">
-                                                A IA está processando sua petição...
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Consultando bases jurídicas e estruturando fatos.
-                                            </p>
-                                        </div>
-                                    ) : generatedText ? (
-                                        <div className="flex flex-col h-full">
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="context">Fatos e Contexto do Caso *</Label>
                                             <Textarea
-                                                className="flex-1 min-h-[450px] font-serif text-base leading-relaxed border-none focus-visible:ring-0 p-8 whitespace-pre-wrap"
-                                                value={generatedText}
-                                                onChange={(e) => setGeneratedText(e.target.value)}
+                                                id="context"
+                                                placeholder="Descreva detalhadamente o caso..."
+                                                value={context}
+                                                onChange={(e) => setContext(e.target.value)}
+                                                className="min-h-[300px] resize-none p-4"
                                             />
-                                            {/* AI Copilot Panel */}
-                                            <div className="p-4 bg-muted/50 border-t space-y-3">
-                                                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                                                    <Brain className="h-3 w-3" /> Assistência Jurídica IA
-                                                </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="bg-background text-[10px] h-7 px-2"
-                                                    >
-                                                        💎 Refinar fundamentos
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="bg-background text-[10px] h-7 px-2"
-                                                    >
-                                                        ⚖️ Adicionar jurisprudência
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="bg-background text-[10px] h-7 px-2"
-                                                    >
-                                                        🔍 Revisão técnica
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="bg-background text-[10px] h-7 px-2"
-                                                    >
-                                                        📝 Resumir peça
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-full py-20 text-center text-muted-foreground opacity-40">
-                                            <Sparkles className="h-16 w-16 mb-4" />
-                                            <p className="text-sm font-medium">Pronto para gerar sua peça.</p>
-                                            <p className="text-xs mt-1">
-                                                Insira o contexto ao lado e deixe a IA cuidar da redação.
-                                            </p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* History (bottom) */}
-            <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-                <CollapsibleContent>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="font-display text-lg flex items-center gap-2">
-                                <Clock className="h-5 w-5 text-muted-foreground" />
-                                Peças Salvas
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {isLoadingPecas ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                </div>
-                            ) : (pecas ?? []).length === 0 ? (
-                                <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                                    <Clock className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                                    <p className="text-sm text-muted-foreground">Nenhuma peça salva ainda.</p>
-                                </div>
-                            ) : (
-                                (pecas ?? []).map((p) => (
-                                    <div
-                                        key={p.id}
-                                        className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-muted/50 transition-all cursor-pointer group"
-                                        onClick={() => loadPeca(p)}
-                                    >
-                                        <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/5 text-primary">
-                                            <FileText className="h-5 w-5" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold truncate">{p.title}</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">
-                                                {p.tipo} {p.process_number && `• Nº ${p.process_number}`} •{" "}
-                                                {format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                                            </p>
                                         </div>
                                         <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setDeleteTarget(p.id);
-                                            }}
+                                            className="w-full"
+                                            size="lg"
+                                            onClick={handleGenerate}
+                                            disabled={isGenerating}
                                         >
-                                            <Trash2 className="h-4 w-4" />
+                                            {isGenerating ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />A IA está
+                                                    redigindo...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Wand2 className="mr-2 h-5 w-5" />
+                                                    Gerar Peça Completa
+                                                </>
+                                            )}
                                         </Button>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Right: Output */}
+                            <div className="space-y-4">
+                                <Card className="min-h-[500px] flex flex-col">
+                                    <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+                                        <CardTitle className="font-display text-lg flex items-center gap-2">
+                                            <FileText className="h-5 w-5 text-primary" />
+                                            Rascunho da Peça
+                                        </CardTitle>
+                                        {generatedText && (
+                                            <div className="flex gap-2">
+                                                <Button variant="outline" size="sm" onClick={handleCopy}>
+                                                    <Copy className="mr-2 h-3.5 w-3.5" />
+                                                    Copiar
+                                                </Button>
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    onClick={handleSave}
+                                                    disabled={saveMutation.isPending}
+                                                >
+                                                    <Save className="mr-2 h-3.5 w-3.5" />
+                                                    Salvar
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </CardHeader>
+                                    <CardContent className="flex-1 p-0">
+                                        {isGenerating ? (
+                                            <div className="flex flex-col items-center justify-center h-full py-20 text-center">
+                                                <Loader2 className="h-10 w-10 animate-spin text-accent" />
+                                                <p className="mt-4 text-sm font-medium">
+                                                    A IA está processando sua petição...
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Consultando bases jurídicas e estruturando fatos.
+                                                </p>
+                                            </div>
+                                        ) : generatedText ? (
+                                            <div className="flex flex-col h-full">
+                                                <Textarea
+                                                    className="flex-1 min-h-[450px] font-serif text-base leading-relaxed border-none focus-visible:ring-0 p-8 whitespace-pre-wrap"
+                                                    value={generatedText}
+                                                    onChange={(e) => setGeneratedText(e.target.value)}
+                                                />
+                                                {/* AI Copilot Panel */}
+                                                <div className="p-4 bg-muted/50 border-t space-y-3">
+                                                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                                        <Brain className="h-3 w-3" /> Assistência Jurídica IA
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="bg-background text-[10px] h-7 px-2"
+                                                        >
+                                                            💎 Refinar fundamentos
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="bg-background text-[10px] h-7 px-2"
+                                                        >
+                                                            ⚖️ Adicionar jurisprudência
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="bg-background text-[10px] h-7 px-2"
+                                                        >
+                                                            🔍 Revisão técnica
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="bg-background text-[10px] h-7 px-2"
+                                                        >
+                                                            📝 Resumir peça
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full py-20 text-center text-muted-foreground opacity-40">
+                                                <Sparkles className="h-16 w-16 mb-4" />
+                                                <p className="text-sm font-medium">Pronto para gerar sua peça.</p>
+                                                <p className="text-xs mt-1">
+                                                    Insira o contexto ao lado e deixe a IA cuidar da redação.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* History (bottom) */}
+                <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+                    <CollapsibleContent>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="font-display text-lg flex items-center gap-2">
+                                    <Clock className="h-5 w-5 text-muted-foreground" />
+                                    Peças Salvas
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {isLoadingPecas ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                     </div>
-                                ))
-                            )}
-                        </CardContent>
-                    </Card>
-                </CollapsibleContent>
-            </Collapsible>
+                                ) : (pecas ?? []).length === 0 ? (
+                                    <div className="text-center py-10 border-2 border-dashed rounded-lg">
+                                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                        <p className="text-sm text-muted-foreground">Nenhuma peça salva ainda.</p>
+                                    </div>
+                                ) : (
+                                    (pecas ?? []).map((p) => (
+                                        <div
+                                            key={p.id}
+                                            className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-muted/50 transition-all cursor-pointer group"
+                                            onClick={() => loadPeca(p)}
+                                        >
+                                            <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/5 text-primary">
+                                                <FileText className="h-5 w-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold truncate">{p.title}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">
+                                                    {p.tipo} {p.process_number && `• Nº ${p.process_number}`} •{" "}
+                                                    {format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteTarget(p.id);
+                                                }}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))
+                                )}
+                            </CardContent>
+                        </Card>
+                    </CollapsibleContent>
+                </Collapsible>
+            </motion.div>
 
             <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
                 <AlertDialogContent>
@@ -443,7 +446,7 @@ ${context}`;
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </motion.div>
+        </>
     );
 };
 

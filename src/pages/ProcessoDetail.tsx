@@ -76,67 +76,72 @@ const ProcessoDetail = () => {
     }
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6 min-w-0 w-full max-w-full overflow-x-hidden"
-        >
-            <ProcessoHeader
-                processo={processo}
-                onNewAndamento={() => setAndamentoOpen(true)}
-                onOpenStatus={() => setStatusOpen(true)}
-            />
+        <>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6 min-w-0 w-full max-w-full overflow-x-hidden"
+            >
+                <ProcessoHeader
+                    processo={processo}
+                    onNewAndamento={() => setAndamentoOpen(true)}
+                    onOpenStatus={() => setStatusOpen(true)}
+                />
 
-            <div className="grid gap-6 lg:grid-cols-3 min-w-0">
-                <ProcessoSidebarInfo processo={processo} />
+                <div className="grid gap-6 lg:grid-cols-3 min-w-0">
+                    <ProcessoSidebarInfo processo={processo} />
 
-                <div className="lg:col-span-2 space-y-6">
-                    <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid grid-cols-4 w-full">
-                            <TabsTrigger value="timeline" className="flex items-center gap-2">
-                                <Clock className="h-3.5 w-3.5" /> Timeline
-                            </TabsTrigger>
-                            <TabsTrigger value="audiencias" className="flex items-center gap-2">
-                                <Calendar className="h-3.5 w-3.5" /> Audiências
-                            </TabsTrigger>
-                            <TabsTrigger value="documentos" className="flex items-center gap-2">
-                                <FileText className="h-3.5 w-3.5" /> Docs
-                            </TabsTrigger>
-                            <TabsTrigger value="notas" className="flex items-center gap-2">
-                                <MessageSquare className="h-3.5 w-3.5" /> Notas
-                            </TabsTrigger>
-                        </TabsList>
+                    <div className="lg:col-span-2 space-y-6">
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <TabsList className="grid grid-cols-4 w-full">
+                                <TabsTrigger value="timeline" className="flex items-center gap-2">
+                                    <Clock className="h-3.5 w-3.5" /> Timeline
+                                </TabsTrigger>
+                                <TabsTrigger value="audiencias" className="flex items-center gap-2">
+                                    <Calendar className="h-3.5 w-3.5" /> Audiências
+                                </TabsTrigger>
+                                <TabsTrigger value="documentos" className="flex items-center gap-2">
+                                    <FileText className="h-3.5 w-3.5" /> Docs
+                                </TabsTrigger>
+                                <TabsTrigger value="notas" className="flex items-center gap-2">
+                                    <MessageSquare className="h-3.5 w-3.5" /> Notas
+                                </TabsTrigger>
+                            </TabsList>
 
-                        <TabsContent value="timeline" className="mt-6">
-                            <ProcessoTimelineTab timeline={timeline} onAddAndamento={() => setAndamentoOpen(true)} />
-                        </TabsContent>
+                            <TabsContent value="timeline" className="mt-6">
+                                <ProcessoTimelineTab
+                                    timeline={timeline}
+                                    onAddAndamento={() => setAndamentoOpen(true)}
+                                />
+                            </TabsContent>
 
-                        <TabsContent value="audiencias" className="mt-6">
-                            <ProcessoAudienciasTab
-                                audiencias={audiencias}
-                                onAddAudiencia={() => setAudienciaOpen(true)}
-                            />
-                        </TabsContent>
+                            <TabsContent value="audiencias" className="mt-6">
+                                <ProcessoAudienciasTab
+                                    audiencias={audiencias}
+                                    onAddAudiencia={() => setAudienciaOpen(true)}
+                                />
+                            </TabsContent>
 
-                        <TabsContent value="documentos" className="mt-6">
-                            <ProcessoDocumentosTab
-                                documents={documents}
-                                onAddDoc={() => setDocOpen(true)}
-                                deleteDoc={deleteDoc}
-                            />
-                        </TabsContent>
+                            <TabsContent value="documentos" className="mt-6">
+                                <ProcessoDocumentosTab
+                                    documents={documents}
+                                    onAddDoc={() => setDocOpen(true)}
+                                    deleteDoc={deleteDoc}
+                                />
+                            </TabsContent>
 
-                        <TabsContent value="notas" className="mt-6">
-                            <ProcessoNotasTab
-                                notes={notes}
-                                onAddNote={() => handleOpenNote()}
-                                onEditNote={(note) => handleOpenNote(note)}
-                                deleteNote={deleteNote}
-                            />
-                        </TabsContent>
-                    </Tabs>
+                            <TabsContent value="notas" className="mt-6">
+                                <ProcessoNotasTab
+                                    notes={notes}
+                                    onAddNote={() => handleOpenNote()}
+                                    onEditNote={(note) => handleOpenNote(note)}
+                                    deleteNote={deleteNote}
+                                />
+                            </TabsContent>
+                        </Tabs>
+                    </div>
                 </div>
-            </div>
+            </motion.div>
 
             <ProcessoAndamentoDialog
                 open={andamentoOpen}
@@ -165,7 +170,7 @@ const ProcessoDetail = () => {
                 currentStatus={(processo.status as StatusProcesso) ?? "Em andamento"}
                 updateStatus={updateStatus}
             />
-        </motion.div>
+        </>
     );
 };
 

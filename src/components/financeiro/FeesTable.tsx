@@ -1,5 +1,16 @@
 import { useState, Fragment } from "react";
-import { Loader2, DollarSign, Plus, MoreHorizontal, Pencil, Trash2, Search, ChevronDown, ChevronRight, Check } from "lucide-react";
+import {
+    Loader2,
+    DollarSign,
+    Plus,
+    MoreHorizontal,
+    Pencil,
+    Trash2,
+    Search,
+    ChevronDown,
+    ChevronRight,
+    Check,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +98,7 @@ export const FeesTable = ({ onEdit, onDelete, onNew }: FeesTableProps) => {
     };
 
     return (
-        <Card>
+        <Card className="glass-card shadow-sm border-white/10 overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
                 <CardTitle className="font-display text-xl">Honorários</CardTitle>
                 <div className="relative">
@@ -110,9 +121,7 @@ export const FeesTable = ({ onEdit, onDelete, onNew }: FeesTableProps) => {
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                         <DollarSign className="h-12 w-12 text-muted-foreground/50" />
                         <p className="mt-4 text-lg font-medium text-foreground">Nenhum honorário registrado</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Clique em "Novo Honorário" para começar.
-                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">Clique em "Novo Honorário" para começar.</p>
                         <Button onClick={onNew} className="mt-4">
                             <Plus className="mr-2 h-4 w-4" />
                             Registrar Primeiro
@@ -142,9 +151,11 @@ export const FeesTable = ({ onEdit, onDelete, onNew }: FeesTableProps) => {
                             <TableBody>
                                 {pageData.map((f) => {
                                     const firstParcela = f.installments_status?.find((s) => s.number === 1);
+                                    const isExpanded = expandedFees.has(f.id);
                                     return (
-                                        <Fragment key={f.id}>
+                                        <Fragment key={`fee-group-${f.id}`}>
                                             <TableRow
+                                                key={`fee-row-${f.id}`}
                                                 className="cursor-pointer"
                                                 onDoubleClick={() => onEdit(f)}
                                             >
@@ -167,17 +178,21 @@ export const FeesTable = ({ onEdit, onDelete, onNew }: FeesTableProps) => {
                                                         </Button>
                                                     )}
                                                 </TableCell>
-                                                <TableCell className="font-medium">{f.client}</TableCell>
-                                                <TableCell className="font-mono text-xs">
-                                                    {f.process_number || "—"}
+                                                <TableCell className="font-medium">
+                                                    <span>{f.client}</span>
                                                 </TableCell>
-                                                <TableCell>{f.description || "—"}</TableCell>
+                                                <TableCell className="font-mono text-xs">
+                                                    <span>{f.process_number || "—"}</span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span>{f.description || "—"}</span>
+                                                </TableCell>
                                                 <TableCell className="font-semibold">
-                                                    {formatCurrency(f.value)}
+                                                    <span>{formatCurrency(f.value)}</span>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant={statusBadge[f.status]?.variant ?? "secondary"}>
-                                                        {f.status}
+                                                        <span>{f.status}</span>
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-sm">
@@ -225,15 +240,21 @@ export const FeesTable = ({ onEdit, onDelete, onNew }: FeesTableProps) => {
                                             </TableRow>
 
                                             {/* Linha expandida com parcelas */}
-                                            {hasInstallments(f) && expandedFees.has(f.id) && (
-                                                <TableRow className="bg-muted/20 hover:bg-muted/30">
+                                            {hasInstallments(f) && isExpanded && (
+                                                <TableRow
+                                                    key={`fee-expand-${f.id}`}
+                                                    className="bg-muted/20 hover:bg-muted/30"
+                                                >
                                                     <TableCell colSpan={9} className="p-0">
                                                         <div className="px-8 py-3 space-y-2">
                                                             <p className="text-xs font-semibold text-muted-foreground mb-2">
-                                                                Parcelas — {getInstallmentSummary(f)} pagas
+                                                                <span>Parcelas — {getInstallmentSummary(f)} pagas</span>
                                                             </p>
                                                             <div className="overflow-x-auto">
-                                                                <table className="w-full text-sm">
+                                                                <table
+                                                                    key={`table-inst-${f.id}`}
+                                                                    className="w-full text-sm"
+                                                                >
                                                                     <thead>
                                                                         <tr className="text-xs text-muted-foreground">
                                                                             <th className="text-left pb-1 pr-4 font-medium">
@@ -258,27 +279,38 @@ export const FeesTable = ({ onEdit, onDelete, onNew }: FeesTableProps) => {
                                                                             .sort((a, b) => a.number - b.number)
                                                                             .map((inst) => (
                                                                                 <tr
-                                                                                    key={inst.number}
+                                                                                    key={`inst-${f.id}-${inst.number}`}
                                                                                     className="hover:bg-muted/40"
                                                                                 >
                                                                                     <td className="py-1.5 pr-4 font-medium">
-                                                                                        {inst.number === 0
-                                                                                            ? "Entrada"
-                                                                                            : `${inst.number}ª parcela`}
+                                                                                        <span>
+                                                                                            {inst.number === 0
+                                                                                                ? "Entrada"
+                                                                                                : `${inst.number}ª parcela`}
+                                                                                        </span>
                                                                                     </td>
                                                                                     <td className="py-1.5 pr-4">
-                                                                                        {inst.value != null
-                                                                                            ? formatCurrency(inst.value)
-                                                                                            : "—"}
+                                                                                        <span>
+                                                                                            {inst.value != null
+                                                                                                ? formatCurrency(
+                                                                                                      inst.value,
+                                                                                                  )
+                                                                                                : "—"}
+                                                                                        </span>
                                                                                     </td>
                                                                                     <td className="py-1.5 pr-4 text-muted-foreground">
-                                                                                        {formatDate(inst.due_date)}
+                                                                                        <span>
+                                                                                            {formatDate(inst.due_date)}
+                                                                                        </span>
                                                                                     </td>
                                                                                     <td className="py-1.5 pr-4 text-muted-foreground">
-                                                                                        {formatDate(inst.paid_date)}
+                                                                                        <span>
+                                                                                            {formatDate(inst.paid_date)}
+                                                                                        </span>
                                                                                     </td>
                                                                                     <td className="py-1.5">
                                                                                         <button
+                                                                                            key={`btn-pay-${f.id}-${inst.number}`}
                                                                                             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                                                                                                 inst.paid
                                                                                                     ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
@@ -297,9 +329,11 @@ export const FeesTable = ({ onEdit, onDelete, onNew }: FeesTableProps) => {
                                                                                             {inst.paid && (
                                                                                                 <Check className="h-3 w-3" />
                                                                                             )}
-                                                                                            {inst.paid
-                                                                                                ? "Pago"
-                                                                                                : "Marcar pago"}
+                                                                                            <span>
+                                                                                                {inst.paid
+                                                                                                    ? "Pago"
+                                                                                                    : "Marcar pago"}
+                                                                                            </span>
                                                                                         </button>
                                                                                     </td>
                                                                                 </tr>

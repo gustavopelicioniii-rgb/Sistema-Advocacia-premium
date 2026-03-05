@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,8 +6,8 @@
 
 @layer base {
     :root {
-        /* Legal Premium - Light Mode */
-        --background: 0 0% 99%;
+        /* Clean Legal - Light Mode */
+        --background: 0 0% 100%;
         --foreground: 222 47% 11%;
 
         --card: 0 0% 100%;
@@ -16,32 +16,34 @@
         --popover: 0 0% 100%;
         --popover-foreground: 222 47% 11%;
 
-        /* Azul profundo advogado */
-        --primary: 221 83% 20%;
-        --primary-foreground: 0 0% 99%;
+        /* Azul Royal Advogado (V2 palette) */
+        --primary: 216 100% 15%;
+        /* #001D4A */
+        --primary-foreground: 0 0% 100%;
 
-        --secondary: 221 20% 96%;
-        --secondary-foreground: 221 83% 20%;
+        --secondary: 214 32% 91%;
+        /* #D9E2F2 */
+        --secondary-foreground: 216 100% 15%;
 
-        --muted: 220 14% 95%;
-        --muted-foreground: 220 10% 42%;
+        --muted: 210 20% 96%;
+        --muted-foreground: 215 16% 47%;
 
-        /* Dourado sutil (não berrante) */
-        --accent: 43 74% 66%;
-        --accent-foreground: 222 47% 11%;
+        /* Dourado / Accent */
+        --accent: 214 32% 91%;
+        --accent-foreground: 216 100% 15%;
 
         --destructive: 0 72% 51%;
         --destructive-foreground: 0 0% 100%;
 
-        --border: 220 13% 91%;
-        --input: 220 13% 94%;
-        --ring: 221 83% 20%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 216 100% 15%;
 
         /* Design System */
-        --radius: 0.75rem;
+        --radius: 1.5rem;
         --spacing-unit: 0.5rem;
-        --spacing-content: 1.5rem;
-        --spacing-section: 3rem;
+        --spacing-content: 2rem;
+        --spacing-section: 4rem;
 
         /* Verde jurídico */
         --success: 142 76% 36%;
@@ -51,65 +53,38 @@
         --info: 210 80% 48%;
         --info-foreground: 0 0% 100%;
 
-        /* Sidebar Premium */
-        --sidebar-background: 221 83% 20%;
-        --sidebar-foreground: 0 0% 95%;
-        --sidebar-primary: 43 74% 66%;
-        --sidebar-primary-foreground: 222 47% 11%;
-        --sidebar-accent: 221 70% 25%;
-        --sidebar-accent-foreground: 0 0% 100%;
-        --sidebar-border: 221 60% 15%;
-        --sidebar-ring: 43 74% 66%;
+        /* Sidebar is now Glass */
     }
 
     .dark {
         /* Legal Premium - Dark Mode */
-        --background: 222 47% 6%;
-        --foreground: 0 0% 98%;
+        --background: 222 47% 4%;
+        --foreground: 210 20% 98%;
 
-        --card: 222 40% 10%;
-        --card-foreground: 0 0% 98%;
+        --card: 222 40% 7%;
+        --card-foreground: 210 20% 98%;
 
-        --popover: 222 40% 10%;
-        --popover-foreground: 0 0% 98%;
+        --popover: 222 40% 7%;
+        --popover-foreground: 210 20% 98%;
 
-        /* Dourado se torna primário no dark */
-        --primary: 43 74% 66%;
-        --primary-foreground: 222 47% 11%;
+        --primary: 210 20% 98%;
+        --primary-foreground: 222 47% 4%;
 
-        --secondary: 222 30% 15%;
-        --secondary-foreground: 0 0% 98%;
+        --secondary: 222 30% 12%;
+        --secondary-foreground: 210 20% 98%;
 
-        --muted: 222 30% 14%;
-        --muted-foreground: 220 10% 60%;
+        --muted: 222 30% 10%;
+        --muted-foreground: 215 16% 60%;
 
-        /* Azul mais claro como accent */
-        --accent: 221 83% 53%;
-        --accent-foreground: 0 0% 100%;
+        --accent: 222 30% 15%;
+        --accent-foreground: 210 20% 98%;
 
         --destructive: 0 72% 51%;
         --destructive-foreground: 0 0% 100%;
 
-        --border: 222 30% 18%;
-        --input: 222 30% 16%;
-        --ring: 43 74% 66%;
-
-        --success: 142 76% 36%;
-        --success-foreground: 0 0% 100%;
-        --warning: 38 92% 50%;
-        --warning-foreground: 222 47% 11%;
-        --info: 210 80% 48%;
-        --info-foreground: 0 0% 100%;
-
-        /* Sidebar Dark Premium */
-        --sidebar-background: 222 47% 8%;
-        --sidebar-foreground: 0 0% 90%;
-        --sidebar-primary: 43 74% 66%;
-        --sidebar-primary-foreground: 222 47% 11%;
-        --sidebar-accent: 222 35% 14%;
-        --sidebar-accent-foreground: 0 0% 98%;
-        --sidebar-border: 222 30% 12%;
-        --sidebar-ring: 43 74% 66%;
+        --border: 222 30% 15%;
+        --input: 222 30% 15%;
+        --ring: 210 20% 98%;
     }
 }
 
@@ -223,23 +198,48 @@
         @apply shadow-lg -translate-y-1 border-primary/20;
     }
 
-    /* Glassmorphism effect */
+    /* Glassmorphism Ultra Premium (Apple Style) */
     .glass {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.45);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(0, 0, 0, 0.02);
+        box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.01);
     }
 
     .dark .glass {
-        background: rgba(0, 0, 0, 0.3);
+        background: rgba(17, 25, 40, 0.4);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
         border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
     }
 
-    /* Gradient text */
-    .gradient-text {
-        @apply bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent;
-        background-size: 200% auto;
-        animation: gradient-shift 3s ease infinite;
+    .glass-card {
+        @apply glass rounded-[24px] transition-all duration-300;
+        border: 1px solid rgba(0, 0, 0, 0.02);
+    }
+
+    .glass-card:hover {
+        @apply -translate-y-0.5;
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(0, 0, 0, 0.02);
+    }
+
+    /* Clean & Premium Flat Background */
+    .liquid-bg {
+        background: #ffffff;
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+    }
+
+    .dark .liquid-bg {
+        background: #020617;
+    }
+
+    .liquid-blob {
+        display: none;
     }
 
     /* Status badges premium */
@@ -319,6 +319,7 @@
     100% {
         background-position: 0% 50%;
     }
+
     50% {
         background-position: 100% 50%;
     }
@@ -328,6 +329,7 @@
     0% {
         background-position: -200% 0;
     }
+
     100% {
         background-position: 200% 0;
     }
@@ -337,6 +339,7 @@
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -347,6 +350,7 @@
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -358,8 +362,27 @@
         opacity: 0;
         transform: scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: scale(1);
+    }
+}
+
+@keyframes blob-move {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    33% {
+        transform: translate(30px, -50px) scale(1.1);
+    }
+
+    66% {
+        transform: translate(-20px, 20px) scale(0.9);
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1);
     }
 }

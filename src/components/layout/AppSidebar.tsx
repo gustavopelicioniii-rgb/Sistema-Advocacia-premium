@@ -93,43 +93,47 @@ const NavItem = ({ item, isActive }: { item: NavItemType; isActive: boolean }) =
         <Link
             to={item.href}
             className={cn(
-                "group flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-300 relative",
                 isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-md shadow-black/10"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground",
+                    ? "bg-white text-[#001D4A] shadow-[0_4px_20px_rgba(0,0,0,0.05)]"
+                    : "text-foreground/50 hover:text-[#001D4A] hover:bg-white/40",
             )}
         >
-            {/* Decorative indicator for active item */}
-            {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-sidebar-primary" />
-            )}
+            {/* Indicator */}
+            {isActive && <div className="absolute left-[-16px] h-8 w-1.5 rounded-r-xl bg-[#001D4A]" />}
 
-            {item.iconSrc ? (
-                <img
-                    src={item.iconSrc}
-                    alt=""
-                    className={cn(
-                        "h-5 w-5 shrink-0 object-contain transition-all duration-300",
-                        isActive ? "opacity-100 scale-110" : "opacity-60 group-hover:opacity-100",
-                        // Força visibilidade no fundo escuro da sidebar (ícones de ferramentas)
-                        !isWhatsApp && "brightness-0 invert opacity-80 group-hover:opacity-100",
-                    )}
-                    aria-hidden
-                />
-            ) : (
-                <item.icon
-                    className={cn(
-                        "h-5 w-5 shrink-0 transition-all duration-300",
-                        isActive
-                            ? "text-sidebar-primary scale-110"
-                            : "text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground",
-                    )}
-                />
-            )}
-            <span className="truncate transition-transform duration-300 group-hover:translate-x-0.5">{item.name}</span>
-            {item.badge && <Sparkles className="ml-auto h-3.5 w-3.5 shrink-0 text-sidebar-primary animate-pulse" />}
+            <div
+                className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-300",
+                    isActive ? "bg-[#D9E2F2]" : "bg-transparent group-hover:bg-white/50",
+                )}
+            >
+                {item.iconSrc ? (
+                    <img
+                        src={item.iconSrc}
+                        alt=""
+                        className={cn(
+                            "h-5 w-5 shrink-0 object-contain transition-all duration-300",
+                            isActive ? "opacity-100 scale-110" : "opacity-40 group-hover:opacity-100",
+                            !isWhatsApp && "brightness-0 opacity-80 group-hover:opacity-100",
+                        )}
+                        aria-hidden
+                    />
+                ) : (
+                    <item.icon
+                        className={cn(
+                            "h-5 w-5 shrink-0 transition-all duration-300",
+                            isActive ? "text-[#001D4A] scale-110" : "text-foreground/30 group-hover:text-[#001D4A]",
+                        )}
+                    />
+                )}
+            </div>
+
+            <span className="truncate">{item.name}</span>
+
+            {item.badge && <Sparkles className="ml-auto h-4 w-4 shrink-0 text-amber-500 animate-pulse" />}
             {item.count != null && item.count > 0 && (
-                <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-[10px] font-bold text-sidebar-primary-foreground px-1 shadow-sm">
+                <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#001D4A] text-[10px] font-bold text-white px-1">
                     {item.count}
                 </span>
             )}
@@ -182,27 +186,27 @@ const AppSidebar = () => {
         .join("");
 
     return (
-        <aside className="fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col bg-sidebar border-r border-sidebar-border shadow-2xl shadow-black/20">
+        <aside className="fixed left-0 top-0 bottom-0 z-50 flex w-[280px] flex-col glass rounded-none border-none transition-all duration-500">
             {/* Logo Section */}
-            <div className="flex h-24 items-center gap-3 px-6 border-b border-sidebar-border bg-gradient-to-b from-black/20 to-transparent">
+            <div className="flex h-28 items-center gap-4 px-8 border-b border-black/[0.02]">
                 {profile?.firm_logo_url ? (
-                    <div className="flex items-center justify-center w-full p-2 bg-white/[0.03] rounded-xl border border-white/5 backdrop-blur-sm shadow-inner overflow-hidden min-h-[60px]">
+                    <div className="flex items-center justify-center w-full p-3 glass-card rounded-[24px] border-white/20 shadow-none overflow-hidden min-h-[60px]">
                         <img
                             src={profile.firm_logo_url}
                             alt="Logo do escritório"
-                            className="h-auto max-h-[50px] w-auto max-w-full object-contain transition-transform duration-300 hover:scale-105"
+                            className="h-auto max-h-[45px] w-auto max-w-full object-contain transition-transform duration-500 hover:scale-110"
                         />
                     </div>
                 ) : (
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-sidebar-primary/80 shadow-lg shadow-sidebar-primary/20">
-                            <Scale className="h-6 w-6 text-sidebar-primary-foreground" />
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[#001D4A] shadow-xl shadow-[#001D4A]/10 transition-transform hover:rotate-3">
+                            <Scale className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                            <h1 className="font-display text-xl font-black tracking-tight text-white leading-tight">
-                                Smart<span className="text-sidebar-primary">Case</span>
-                                <span className="block text-[10px] uppercase tracking-[0.2em] font-medium text-sidebar-foreground/40">
-                                    Mate Advisor
+                            <h1 className="font-sans text-lg font-bold tracking-tighter text-[#001D4A] leading-none">
+                                Smart<span className="text-primary">Case</span>
+                                <span className="block text-[8px] uppercase tracking-[0.4em] font-bold text-[#001D4A]/20 mt-1.5">
+                                    Adviser Premium
                                 </span>
                             </h1>
                         </div>
@@ -211,48 +215,52 @@ const AppSidebar = () => {
             </div>
 
             {/* Main Navigation */}
-            <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8 custom-scrollbar">
-                <div className="space-y-1.5">
-                    <p className="px-4 mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-sidebar-foreground/70">
+            <nav className="flex-1 overflow-y-auto px-4 py-8 space-y-10 custom-scrollbar">
+                <div className="space-y-3">
+                    <p className="px-4 mb-4 text-[11px] font-bold uppercase tracking-[0.25em] text-foreground/20">
                         Principal
                     </p>
-                    {mainNav.map((item) => (
-                        <NavItem key={item.name} item={item} isActive={isActive(item.href)} />
-                    ))}
+                    <div className="space-y-1">
+                        {mainNav.map((item) => (
+                            <NavItem key={item.name} item={item} isActive={isActive(item.href)} />
+                        ))}
+                    </div>
                 </div>
 
-                <div className="space-y-1.5">
-                    <p className="px-4 mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-sidebar-foreground/70">
+                <div className="space-y-3">
+                    <p className="px-4 mb-4 text-[11px] font-bold uppercase tracking-[0.25em] text-foreground/20">
                         Ferramentas
                     </p>
-                    {secondaryNavFiltered.map((item) => (
-                        <NavItem key={item.name} item={item} isActive={isActive(item.href)} />
-                    ))}
+                    <div className="space-y-1">
+                        {secondaryNavFiltered.map((item) => (
+                            <NavItem key={item.name} item={item} isActive={isActive(item.href)} />
+                        ))}
+                    </div>
                 </div>
 
-                <div className="px-3.5 pt-3">
+                <div className="px-4 pt-4">
                     <ThemeToggle />
                 </div>
             </nav>
 
-            {/* Footer */}
-            <div className="border-t border-sidebar-border p-4">
-                <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
+            {/* Footer Profile Section */}
+            <div className="p-6">
+                <div className="flex items-center gap-3 bg-white/60 rounded-[28px] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white/20 transition-all hover:scale-[1.02] hover:bg-white/80">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#001D4A] text-sm font-bold text-white shadow-lg shadow-[#001D4A]/20">
                         {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{displayName}</p>
-                        <p className="text-xs text-sidebar-foreground/80 truncate">
+                        <p className="text-sm font-bold text-[#001D4A] truncate">{displayName}</p>
+                        <p className="text-[10px] font-bold text-foreground/30 truncate uppercase tracking-widest">
                             {role === "admin" ? "Administrador" : "Advogado"}
                         </p>
                     </div>
                     <button
                         onClick={signOut}
-                        className="text-sidebar-foreground hover:text-sidebar-accent-foreground"
+                        className="p-2.5 rounded-xl text-foreground/30 hover:text-[#001D4A] hover:bg-white transition-all shadow-none hover:shadow-sm"
                         title="Sair"
                     >
-                        <LogOut className="h-4 w-4" />
+                        <LogOut className="h-5 w-5" />
                     </button>
                 </div>
             </div>

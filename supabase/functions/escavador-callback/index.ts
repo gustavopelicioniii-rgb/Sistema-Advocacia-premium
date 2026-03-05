@@ -347,6 +347,16 @@ Deno.serve(async (req) => {
                     })
                     .eq("id", processo.id);
                 await updateCallbackLog(supabase, logId, "processed", "Sem movimentações novas", now);
+
+                // Registrar na timeline que foi verificado
+                await supabase.from("andamentos").insert({
+                    process_id: processo.id,
+                    data: now,
+                    tipo: "Sincronização",
+                    descricao:
+                        "Verificação concluída: O processo foi consultado e não há novas movimentações no momento.",
+                    owner_id: processo.owner_id,
+                });
                 return json({ ok: true, result: "processed", movements: 0 }, 200);
             }
 
@@ -376,11 +386,13 @@ Deno.serve(async (req) => {
 
             for (const mov of todasMovimentacoes) {
                 const isRelevant = isRelevantMovement(mov.conteudo);
+                const movementType = detectMovementType(mov.conteudo);
+
                 const { error: insertError } = await supabase.from("process_movements").insert({
                     process_id: processo.id,
                     process_number: numeroCnj,
                     movement_date: mov.data,
-                    movement_type: detectMovementType(mov.conteudo),
+                    movement_type: movementType,
                     full_text: mov.conteudo,
                     is_relevant: isRelevant,
                     external_id: mov.id,
@@ -390,6 +402,16 @@ Deno.serve(async (req) => {
                 if (!insertError) {
                     insertedCount++;
                     if (isRelevant) relevantMovements.push(mov);
+
+                    // Sincronizar com a linha do tempo (andamentos)
+                    // Isso permite que o advogado veja o histórico no painel principal
+                    await supabase.from("andamentos").insert({
+                        process_id: processo.id,
+                        data: mov.data,
+                        tipo: movementType,
+                        descricao: mov.conteudo,
+                        owner_id: processo.owner_id,
+                    });
                 }
                 // ON CONFLICT → insertError com code 23505, silenciosamente ignorado
             }
@@ -458,6 +480,16 @@ Deno.serve(async (req) => {
                 })
                 .eq("id", processo.id);
 
+            // Registrar na timeline que o processo não foi encontrado
+            await supabase.from("andamentos").insert({
+                process_id: processo.id,
+                data: now,
+                tipo: "Sistema",
+                descricao:
+                    "Aviso: Processo não encontrado na base do Escavador durante a última tentativa de sincronização.",
+                owner_id: processo.owner_id,
+            });
+
             await supabase.from("process_monitor_logs").insert({
                 process_id: processo.id,
                 process_number: numeroCnj,
@@ -479,6 +511,15 @@ Deno.serve(async (req) => {
                     updated_at: now,
                 })
                 .eq("id", processo.id);
+
+            // Registrar na timeline a falha na sincronização
+            await supabase.from("andamentos").insert({
+                process_id: processo.id,
+                data: now,
+                tipo: "Erro",
+                descricao: `Falha na sincronização automatizada via Escavador: ${resultadoStatus ?? statusGeral}`,
+                owner_id: processo.owner_id,
+            });
 
             await supabase.from("process_monitor_logs").insert({
                 process_id: processo.id,

@@ -92,7 +92,11 @@ export const ExpensesTable = ({ onEdit, onDelete }: ExpensesTableProps) => {
                             </TableHeader>
                             <TableBody>
                                 {pageData.map((e) => (
-                                    <TableRow key={e.id} className="cursor-pointer" onDoubleClick={() => onEdit(e)}>
+                                    <TableRow
+                                        key={`exp-row-${e.id}`}
+                                        className="cursor-pointer"
+                                        onDoubleClick={() => onEdit(e)}
+                                    >
                                         <TableCell>
                                             <span className="inline-flex items-center gap-1.5">
                                                 {(() => {
@@ -101,18 +105,22 @@ export const ExpensesTable = ({ onEdit, onDelete }: ExpensesTableProps) => {
                                                         <Icon className="h-4 w-4 text-muted-foreground" />
                                                     ) : null;
                                                 })()}
-                                                {CATEGORY_LABELS[e.category] ?? e.category}
+                                                <span>{CATEGORY_LABELS[e.category] ?? e.category}</span>
                                             </span>
                                         </TableCell>
-                                        <TableCell>{e.description || "—"}</TableCell>
-                                        <TableCell className="font-semibold">{formatCurrency(e.value)}</TableCell>
+                                        <TableCell>
+                                            <span>{e.description || "—"}</span>
+                                        </TableCell>
+                                        <TableCell className="font-semibold">
+                                            <span>{formatCurrency(e.value)}</span>
+                                        </TableCell>
                                         <TableCell>
                                             <Badge variant={statusBadge[e.status]?.variant ?? "secondary"}>
-                                                {e.status}
+                                                <span>{e.status}</span>
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-sm text-muted-foreground">
-                                            {formatDate(e.due_date)}
+                                            <span>{formatDate(e.due_date)}</span>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
