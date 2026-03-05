@@ -28,6 +28,7 @@ import Calculadora from "./pages/Calculadora";
 import CorrecaoValores from "./pages/calculadora/CorrecaoValores";
 import CorrecaoFGTS from "./pages/calculadora/CorrecaoFGTS";
 import MeusCalculos from "./pages/calculadora/MeusCalculos";
+import OutrasCalculadoras from "./pages/calculadora/OutrasCalculadoras";
 import ImportarProcessos from "./pages/ImportarProcessos";
 import DashboardProcessos from "./pages/DashboardProcessos";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -161,6 +162,14 @@ const App = () => {
                                         element={
                                             <ErrorBoundary>
                                                 <CorrecaoFGTS />
+                                            </ErrorBoundary>
+                                        }
+                                    />
+                                    <Route
+                                        path="/calculadora/:slug"
+                                        element={
+                                            <ErrorBoundary>
+                                                <OutrasCalculadoras />
                                             </ErrorBoundary>
                                         }
                                     />

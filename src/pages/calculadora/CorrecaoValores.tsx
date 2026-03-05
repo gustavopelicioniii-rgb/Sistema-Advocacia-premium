@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CalculatorLayout from "@/components/calculadora/CalculatorLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -209,42 +208,42 @@ const CorrecaoValores = () => {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="cliente">Cliente *</Label>
-                                <Select value={cliente || " "} onValueChange={(v) => setCliente(v === " " ? "" : v)}>
-                                    <SelectTrigger id="cliente">
-                                        <SelectValue placeholder="Selecione um cliente..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value=" ">Selecione...</SelectItem>
-                                        {crmClients?.length ? (
-                                            crmClients.map((c) => (
-                                                <SelectItem key={c.id} value={c.name}>
-                                                    {c.name}
-                                                </SelectItem>
-                                            ))
-                                        ) : (
-                                            <div className="px-2 py-1 text-xs text-muted-foreground">
-                                                Nenhum cliente encontrado ou erro de carregamento.
-                                            </div>
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                                <select
+                                    id="cliente"
+                                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={cliente || ""}
+                                    onChange={(e) => setCliente(e.target.value)}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {crmClients?.length
+                                        ? crmClients.map((c) => (
+                                              <option key={c.id} value={c.name}>
+                                                  {c.name}
+                                              </option>
+                                          ))
+                                        : null}
+                                </select>
+                                {!crmClients?.length && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Nenhum cliente encontrado ou erro de carregamento.
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             <div className="space-y-2">
                                 <Label>Índice para corrigir os valores (recomendado INPC) *</Label>
-                                <Select value={indice} onValueChange={setIndice}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {INDICES.map((i) => (
-                                            <SelectItem key={i} value={i}>
-                                                {i}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <select
+                                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={indice}
+                                    onChange={(e) => setIndice(e.target.value as (typeof INDICES)[number])}
+                                >
+                                    {INDICES.map((i) => (
+                                        <option key={i} value={i}>
+                                            {i}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Valor inicial (R$) *</Label>
@@ -268,18 +267,17 @@ const CorrecaoValores = () => {
                             </div>
                             <div className="space-y-2">
                                 <Label>Tipo de juros *</Label>
-                                <Select value={tipoJuros} onValueChange={setTipoJuros}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {TIPOS_JUROS.map((t) => (
-                                            <SelectItem key={t.value} value={t.value}>
-                                                {t.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <select
+                                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={tipoJuros}
+                                    onChange={(e) => setTipoJuros(e.target.value)}
+                                >
+                                    {TIPOS_JUROS.map((t) => (
+                                        <option key={t.value} value={t.value}>
+                                            {t.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Percentual mensal (opcional)</Label>
